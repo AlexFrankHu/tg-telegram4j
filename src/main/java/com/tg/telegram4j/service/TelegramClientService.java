@@ -213,6 +213,10 @@ public class TelegramClientService {
                 .build();
     }
 
+    // Telegram Desktop public credentials (same as Telethon's built-in defaults)
+    private static final int DEFAULT_API_ID = 2040;
+    private static final String DEFAULT_API_HASH = "b18441a1ff607e10a989891a5462e627";
+
     private int resolveApiId(Integer apiId) {
         if (apiId != null && apiId > 0) {
             return apiId;
@@ -220,7 +224,7 @@ public class TelegramClientService {
         if (properties.getApiId() > 0) {
             return properties.getApiId();
         }
-        throw new IllegalArgumentException("apiId is required (provide in request or configure in application.yml)");
+        return DEFAULT_API_ID;
     }
 
     private String resolveApiHash(String apiHash) {
@@ -230,7 +234,7 @@ public class TelegramClientService {
         if (properties.getApiHash() != null && !properties.getApiHash().isBlank()) {
             return properties.getApiHash();
         }
-        throw new IllegalArgumentException("apiHash is required (provide in request or configure in application.yml)");
+        return DEFAULT_API_HASH;
     }
 
     private record ClientHolder(

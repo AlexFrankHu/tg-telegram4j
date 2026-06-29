@@ -13,7 +13,7 @@ Spring Boot application that uses [Telegram4J](https://github.com/Telegram4J/Tel
 
 - Java 17+
 - Maven 3.8+
-- Telegram API credentials from https://my.telegram.org/apps
+- A Telethon `.session` file (that's it — no API credentials needed)
 
 ### Build Telegram4J locally (required — not published to Maven Central)
 
@@ -38,7 +38,7 @@ mvn clean package -DskipTests
 java -jar target/tg-telegram4j-1.0.0-SNAPSHOT.jar
 ```
 
-Or with custom config:
+Optionally override default API credentials or data directory:
 
 ```bash
 java -jar target/tg-telegram4j-1.0.0-SNAPSHOT.jar \
@@ -52,11 +52,10 @@ java -jar target/tg-telegram4j-1.0.0-SNAPSHOT.jar \
 ### Login by uploading .session file
 
 ```bash
+# Only session file is required — apiId/apiHash use built-in defaults
 curl -X POST http://localhost:8080/api/session/upload \
   -F "file=@/path/to/account.session" \
-  -F "sessionName=my_account" \
-  -F "apiId=12345" \
-  -F "apiHash=abcdef0123456789"
+  -F "sessionName=my_account"
 ```
 
 ### Login by server-side file path
@@ -66,9 +65,7 @@ curl -X POST http://localhost:8080/api/session/import \
   -H "Content-Type: application/json" \
   -d '{
     "sessionName": "my_account",
-    "sessionFilePath": "/data/account.session",
-    "apiId": 12345,
-    "apiHash": "abcdef0123456789"
+    "sessionFilePath": "/data/account.session"
   }'
 ```
 
@@ -110,7 +107,8 @@ curl -X POST http://localhost:8080/api/session/my_account/disconnect
 
 ## Important notes
 
-- The `apiId` and `apiHash` used must match the ones used when the `.session` file was created
+- `apiId`/`apiHash` are optional — defaults to Telegram Desktop's public credentials (same as Telethon)
+- You can override them per-request or via `application.yml` if needed
 - If the session has expired on Telegram's side, login will fail with an auth error
 - Session data is persisted to `{data-dir}/{sessionName}.t4j.bin` after the first successful login
 - Subsequent startups can use the `.t4j.bin` file directly without the original `.session` file

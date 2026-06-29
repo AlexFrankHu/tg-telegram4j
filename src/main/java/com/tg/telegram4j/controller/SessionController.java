@@ -27,10 +27,9 @@ public class SessionController {
      * <pre>
      * curl -X POST http://localhost:8080/api/session/upload \
      *   -F "file=@/path/to/account.session" \
-     *   -F "sessionName=my_account" \
-     *   -F "apiId=12345" \
-     *   -F "apiHash=abcdef..."
+     *   -F "sessionName=my_account"
      * </pre>
+     * apiId and apiHash are optional — defaults to Telegram Desktop's public credentials.
      */
     @PostMapping("/upload")
     public ApiResponse<SessionInfo> loginByUpload(
@@ -54,8 +53,9 @@ public class SessionController {
      * <pre>
      * curl -X POST http://localhost:8080/api/session/import \
      *   -H "Content-Type: application/json" \
-     *   -d '{"sessionName":"my_account","sessionFilePath":"/data/account.session","apiId":12345,"apiHash":"abcdef..."}'
+     *   -d '{"sessionName":"my_account","sessionFilePath":"/data/account.session"}'
      * </pre>
+     * apiId and apiHash are optional — defaults to Telegram Desktop's public credentials.
      */
     @PostMapping("/import")
     public ApiResponse<SessionInfo> loginByPath(@RequestBody LoginRequest request) {
