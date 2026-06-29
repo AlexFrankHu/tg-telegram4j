@@ -1,0 +1,21 @@
+server:
+  port: 8080
+
+telegram:
+  # Directory to store telegram4j session files (t4j.bin)
+  data-dir: ./data
+  # Default API credentials (can be overridden per request)
+  # Get yours from https://my.telegram.org/apps
+  api-id: 0
+  api-hash: ""
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+logging:
+  level:
+    com.tg.telegram4j: DEBUG
+    telegram4j: INFO

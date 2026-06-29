@@ -1,6 +1,23 @@
 target/
 *.class
 *.jar
-.idea/
+*.war
+*.log
 *.iml
-data/
+.idea/
+.vscode/
+*.swp
+*~
+
+# Session data
+data/*.bin
+data/*.session
+
+# Maven
+.mvn/wrapper/
+mvnw
+mvnw.cmd
+
+# OS
+.DS_Store
+Thumbs.db
