@@ -1,11 +1,13 @@
 package com.tg.telegram4j.service;
 
 import com.tg.telegram4j.account.TelegramAccount;
+import com.tg.telegram4j.account.TelegramEventListener;
 import com.tg.telegram4j.entity.TgTelethonAccount;
 import com.tg.telegram4j.model.AccountLoginRequest;
 import com.tg.telegram4j.model.DeviceInfo;
 import com.tg.telegram4j.model.ProxyInfo;
 import com.tg.telegram4j.model.SessionInfo;
+import com.tg.telegram4j.model.TelegramMessage;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
-public class TelegramAccountManager {
+public class TelegramAccountManager implements TelegramEventListener {
 
     @Value("${telegram.data-dir:./data}")
     private String dataDir;
@@ -46,7 +48,8 @@ public class TelegramAccountManager {
                 request.getDevice(),
                 request.isAutoReadMessages(),
                 request.getApiId(),
-                request.getApiHash()
+                request.getApiHash(),
+                this
         );
 
         SessionInfo info = account.login(request.getSessionData());
@@ -101,7 +104,8 @@ public class TelegramAccountManager {
                 deviceInfo,
                 false,
                 dbAccount.getApiId(),
-                dbAccount.getApiHash()
+                dbAccount.getApiHash(),
+                this
         );
 
         SessionInfo info = account.login(dbAccount.getSessionContent());
@@ -251,6 +255,65 @@ public class TelegramAccountManager {
         TelegramAccount account = getAccountOrThrow(sessionName);
         return account.importContacts(contacts);
     }
+
+    // ==================== TelegramEventListener 回调实现 ====================
+
+    @Override
+    public void onMessage(TelegramAccount account, TelegramMessage message) {
+        String sessionName = account.getSessionName();
+        log.info("[统一消息处理] 账号: {}, 消息ID: {}, 聊天: {}({}), 发送者: {}({}), 类型: {}, 内容: {}",
+                sessionName, message.getMessageId(),
+                message.getChatName(), message.getChatId(),
+                message.getSenderUsername(), message.getSenderId(),
+                message.getMessageType(), message.getText());
+
+        // 更新数据库消息计数
+        try {
+            TgTelethonAccount dbAccount = accountService.getByPhone(sessionName);
+            if (dbAccount != null) {
+                accountService.incrementMsgCount(dbAccount.getId(), message.isOutgoing());
+            }
+        } catch (Exception e) {
+            log.warn("[统一消息处理] 更新消息计数失败: account={}, error={}", sessionName, e.getMessage());
+        }
+
+        // TODO: 在此处扩展更多统一处理逻辑，如：
+        // - 自动回复
+        // - 消息转发
+        // - 消息持久化存储
+        // - WebSocket 推送到前端
+    }
+
+    @Override
+    public void onDisconnect(TelegramAccount account, String reason) {
+        String sessionName = account.getSessionName();
+        log.warn("[统一断连处理] 账号: {}, 原因: {}", sessionName, reason);
+
+        // 从活跃账号列表中移除
+        accounts.remove(sessionName);
+
+        // 更新数据库状态
+        try {
+            TgTelethonAccount dbAccount = accountService.getByPhone(sessionName);
+            if (dbAccount != null) {
+                // 根据断连原因设置不同状态
+                String status = reason.contains("banned") || reason.contains("BANNED")
+                        ? "banned" : "offline";
+                accountService.updateStatus(dbAccount.getId(), status);
+            }
+        } catch (Exception e) {
+            log.warn("[统一断连处理] 更新数据库状态失败: account={}, error={}", sessionName, e.getMessage());
+        }
+
+        log.info("[统一断连处理] 账号 '{}' 已从活跃列表移除, 剩余活跃: {}", sessionName, accounts.size());
+
+        // TODO: 在此处扩展更多断连处理逻辑，如：
+        // - 自动重连
+        // - 告警通知
+        // - WebSocket 推送断连事件到前端
+    }
+
+    // ==================== 私有方法 ====================
 
     private TelegramAccount getAccountOrThrow(String sessionName) {
         TelegramAccount account = accounts.get(sessionName);

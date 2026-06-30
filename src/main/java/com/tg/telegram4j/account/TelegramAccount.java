@@ -3,6 +3,7 @@ package com.tg.telegram4j.account;
 import com.tg.telegram4j.model.DeviceInfo;
 import com.tg.telegram4j.model.ProxyInfo;
 import com.tg.telegram4j.model.SessionInfo;
+import com.tg.telegram4j.model.TelegramMessage;
 import com.tg.telegram4j.session.TelethonSessionData;
 import com.tg.telegram4j.session.TelethonSessionReader;
 import com.tg.telegram4j.store.TelethonImportStoreLayout;
@@ -79,11 +80,13 @@ public class TelegramAccount {
     private final String dataDir;
     private final int apiId;
     private final String apiHash;
+    private final TelegramEventListener eventListener;
 
     public TelegramAccount(String sessionName, String dataDir,
                            ProxyInfo proxyInfo, DeviceInfo deviceInfo,
                            boolean autoReadMessages,
-                           Integer apiId, String apiHash) {
+                           Integer apiId, String apiHash,
+                           TelegramEventListener eventListener) {
         this.sessionName = sessionName;
         this.dataDir = dataDir;
         this.proxyInfo = proxyInfo;
@@ -91,6 +94,7 @@ public class TelegramAccount {
         this.autoReadMessages = autoReadMessages;
         this.apiId = resolveApiId(apiId);
         this.apiHash = resolveApiHash(apiHash);
+        this.eventListener = eventListener;
     }
 
     /**
@@ -172,6 +176,9 @@ public class TelegramAccount {
 
             // 订阅接收消息
             subscribeMessages();
+
+            // 订阅断连事件
+            subscribeDisconnect();
 
             // 获取自身账号信息
             sessionInfo = fetchSelfInfo(selfId);
@@ -491,10 +498,10 @@ public class TelegramAccount {
                     String messageType = getMessageType(msg);
 
                     // 发送者信息
-                    String authorId = msg.getAuthorId()
-                            .map(id -> String.valueOf(id.asLong()))
-                            .orElse("unknown");
-                    String authorType = msg.getAuthorId()
+                    long senderId = msg.getAuthorId()
+                            .map(Id::asLong)
+                            .orElse(0L);
+                    String senderType = msg.getAuthorId()
                             .map(id -> id.getType().name())
                             .orElse("UNKNOWN");
 
@@ -507,19 +514,46 @@ public class TelegramAccount {
                             .orElse("UNKNOWN");
 
                     // 发送者详细信息
-                    String authorDetails = event.getAuthor()
-                            .map(author -> author.getUsername().orElse("N/A"))
-                            .orElse("N/A");
+                    String senderUsername = event.getAuthor()
+                            .map(author -> author.getUsername().orElse(""))
+                            .orElse("");
+                    String senderName = event.getAuthor()
+                            .map(MentionablePeer::getName)
+                            .orElse("");
+
+                    // 判断是否是自己发送的
+                    boolean outgoing = senderId == client.getSelfId().asLong();
 
                     log.info("[{}] === 收到新消息 ===", sessionName);
-                    log.info("[{}]   消息类型: {}", sessionName, messageType);
-                    log.info("[{}]   聊天ID: {} ({})", sessionName, chatId.asLong(), chatType);
-                    log.info("[{}]   聊天名称: {}", sessionName, chatName);
-                    log.info("[{}]   发送者ID: {} ({})", sessionName, authorId, authorType);
-                    log.info("[{}]   发送者用户名: {}", sessionName, authorDetails);
-                    log.info("[{}]   消息内容: {}", sessionName, msg.getContent());
-                    log.info("[{}]   消息ID: {}", sessionName, msg.getId());
-                    log.info("[{}] ==================", sessionName);
+                    log.info("[{}]   消息类型: {}, 聊天: {}({}), 发送者: {}({}), 内容: {}",
+                            sessionName, messageType, chatName, chatType,
+                            senderUsername, senderId, msg.getContent());
+
+                    // 封装消息体
+                    TelegramMessage telegramMessage = TelegramMessage.builder()
+                            .messageId(msg.getId())
+                            .chatId(chatId.asLong())
+                            .chatType(chatType)
+                            .chatName(chatName)
+                            .senderId(senderId)
+                            .senderType(senderType)
+                            .senderUsername(senderUsername)
+                            .senderName(senderName)
+                            .text(msg.getContent())
+                            .messageType(messageType)
+                            .outgoing(outgoing)
+                            .timestamp(Instant.now())
+                            .rawMessage(msg)
+                            .build();
+
+                    // 通过回调通知 TelegramAccountManager
+                    if (eventListener != null) {
+                        try {
+                            eventListener.onMessage(this, telegramMessage);
+                        } catch (Exception e) {
+                            log.warn("[{}] 消息回调处理异常: {}", sessionName, e.getMessage());
+                        }
+                    }
 
                     // 如果开启了自动已读，则标记消息为已读
                     if (autoReadMessages) {
@@ -529,6 +563,44 @@ public class TelegramAccount {
                     log.error("[{}] Message subscription error: {}", sessionName, error.getMessage());
                 });
         log.info("[{}] Subscribed to incoming messages (autoRead={})", sessionName, autoReadMessages);
+    }
+
+    /**
+     * 订阅断连事件。
+     * 当客户端因网络异常、封号、服务端断开等原因失去连接时，通过回调通知 TelegramAccountManager。
+     */
+    private void subscribeDisconnect() {
+        client.onDisconnect()
+                .subscribe(
+                        null,
+                        error -> {
+                            // 异常导致的断连
+                            String reason = "连接异常: " + error.getMessage();
+                            log.warn("[{}] 账号断连(异常): {}", sessionName, reason);
+                            connected = false;
+                            if (eventListener != null) {
+                                try {
+                                    eventListener.onDisconnect(this, reason);
+                                } catch (Exception e) {
+                                    log.warn("[{}] 断连回调处理异常: {}", sessionName, e.getMessage());
+                                }
+                            }
+                        },
+                        () -> {
+                            // 正常断连（主动调用 disconnect 或服务端关闭）
+                            String reason = "连接已关闭";
+                            log.info("[{}] 账号断连(正常): {}", sessionName, reason);
+                            connected = false;
+                            if (eventListener != null) {
+                                try {
+                                    eventListener.onDisconnect(this, reason);
+                                } catch (Exception e) {
+                                    log.warn("[{}] 断连回调处理异常: {}", sessionName, e.getMessage());
+                                }
+                            }
+                        }
+                );
+        log.info("[{}] Subscribed to disconnect events", sessionName);
     }
 
     private void markAsRead(Id chatId, int messageId) {
