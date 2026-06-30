@@ -235,6 +235,23 @@ public class TelegramAccountManager {
         return account.sendCaptionMessage(chatId, caption, imageData, fileName);
     }
 
+    /**
+     * 添加好友（普通模式，通过用户名或user_id）。
+     */
+    public Map<String, Object> addContact(String sessionName, String targetUserId,
+                                           String firstName, String lastName, String phone) {
+        TelegramAccount account = getAccountOrThrow(sessionName);
+        return account.addContact(targetUserId, firstName, lastName, phone);
+    }
+
+    /**
+     * 批量导入通讯录方式添加好友。
+     */
+    public Map<String, Object> importContacts(String sessionName, List<Map<String, String>> contacts) {
+        TelegramAccount account = getAccountOrThrow(sessionName);
+        return account.importContacts(contacts);
+    }
+
     private TelegramAccount getAccountOrThrow(String sessionName) {
         TelegramAccount account = accounts.get(sessionName);
         if (account == null) {

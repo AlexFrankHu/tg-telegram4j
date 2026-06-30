@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -291,6 +292,82 @@ public class AccountController {
             return ApiResponse.ok("Sent", result);
         } catch (Exception e) {
             log.error("Send caption failed", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    // ==================== 好友管理接口 ====================
+
+    /**
+     * 单个添加好友（普通模式）。
+     * 通过用户名(@username)或 user_id 添加好友。
+     *
+     * <pre>
+     * curl -X POST http://localhost:8080/api/account/{sessionName}/contact/add \
+     *   -H "Content-Type: application/json" \
+     *   -d '{"userId":"@zhangsan","firstName":"张","lastName":"三"}'
+     * </pre>
+     */
+    @PostMapping("/{sessionName}/contact/add")
+    public ApiResponse<Map<String, Object>> addContact(
+            @PathVariable String sessionName,
+            @RequestBody AddContactRequest request) {
+        try {
+            String targetUserId = request.getUserId();
+            if ((targetUserId == null || targetUserId.isBlank()) && request.getPhone() != null) {
+                targetUserId = request.getPhone();
+            }
+            if (targetUserId == null || targetUserId.isBlank()) {
+                return ApiResponse.error("userId 或 phone 不能都为空");
+            }
+
+            Map<String, Object> result = accountManager.addContact(
+                    sessionName,
+                    targetUserId,
+                    request.getFirstName(),
+                    request.getLastName(),
+                    request.getPhone()
+            );
+            return ApiResponse.ok("添加好友成功", result);
+        } catch (Exception e) {
+            log.error("Add contact failed for '{}'", sessionName, e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 批量导入通讯录方式添加好友。
+     * 通过手机号匹配已注册的 Telegram 用户并添加为好友。
+     *
+     * <pre>
+     * curl -X POST http://localhost:8080/api/account/{sessionName}/contact/import \
+     *   -H "Content-Type: application/json" \
+     *   -d '{"contacts":[{"phone":"+8613800138000","firstName":"张","lastName":"三"}]}'
+     * </pre>
+     */
+    @PostMapping("/{sessionName}/contact/import")
+    public ApiResponse<Map<String, Object>> importContacts(
+            @PathVariable String sessionName,
+            @RequestBody ImportContactsRequest request) {
+        try {
+            if (request.getContacts() == null || request.getContacts().isEmpty()) {
+                return ApiResponse.error("联系人列表不能为空");
+            }
+
+            // 转换为 Map 列表
+            List<Map<String, String>> contacts = new ArrayList<>();
+            for (ImportContactItem item : request.getContacts()) {
+                Map<String, String> contact = new LinkedHashMap<>();
+                contact.put("phone", item.getPhone() != null ? item.getPhone() : "");
+                contact.put("firstName", item.getFirstName() != null ? item.getFirstName() : "");
+                contact.put("lastName", item.getLastName() != null ? item.getLastName() : "");
+                contacts.add(contact);
+            }
+
+            Map<String, Object> result = accountManager.importContacts(sessionName, contacts);
+            return ApiResponse.ok("导入通讯录完成", result);
+        } catch (Exception e) {
+            log.error("Import contacts failed for '{}'", sessionName, e);
             return ApiResponse.error(e.getMessage());
         }
     }

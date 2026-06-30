@@ -34,12 +34,20 @@ import telegram4j.tl.InputPeer;
 import telegram4j.tl.InputUserSelf;
 import telegram4j.tl.User;
 
+import telegram4j.tl.ImmutableInputPhoneContact;
+import telegram4j.tl.ImmutableInputUser;
+import telegram4j.tl.InputPhoneContact;
+import telegram4j.tl.contacts.ImportedContacts;
+import telegram4j.tl.request.contacts.ImmutableAddContact;
+import telegram4j.tl.request.contacts.ImmutableImportContacts;
+
 import java.io.File;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -291,6 +299,170 @@ public class TelegramAccount {
         } catch (Exception e) {
             log.error("[{}] 发送caption到 '{}' 失败: {}", sessionName, chatId, e.getMessage(), e);
             throw new RuntimeException("发送caption失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 普通模式添加好友（通过已知的 Telegram 用户）。
+     * 使用 contacts.addContact TL 方法，需要目标用户的 user_id 和 access_hash。
+     *
+     * @param targetUserId 目标用户的 user_id（通过 username 解析或直接传入）
+     * @param firstName    备注名-姓
+     * @param lastName     备注名-名
+     * @param phone        对方手机号（可为空字符串）
+     * @return 添加结果信息
+     */
+    public Map<String, Object> addContact(String targetUserId, String firstName, String lastName, String phone) {
+        checkConnected();
+        try {
+            // 先解析目标用户
+            long userId;
+            long accessHash = 0;
+
+            try {
+                userId = Long.parseLong(targetUserId);
+                // 如果是数字ID，尝试从 store 获取 access_hash
+                telegram4j.core.object.User user = client.getUserById(Id.ofUser(userId))
+                        .block(Duration.ofSeconds(10));
+                if (user != null) {
+                    accessHash = user.getId().getAccessHash().orElse(0L);
+                }
+            } catch (NumberFormatException e) {
+                // 当做 username 解析
+                String username = targetUserId.startsWith("@") ? targetUserId.substring(1) : targetUserId;
+                telegram4j.core.object.User user = client.getUserById(PeerId.of(username).asId()
+                        .orElseThrow(() -> new RuntimeException("Cannot resolve username: " + targetUserId)))
+                        .block(Duration.ofSeconds(10));
+                if (user == null) {
+                    throw new RuntimeException("User not found: " + targetUserId);
+                }
+                userId = user.getId().asLong();
+                accessHash = user.getId().getAccessHash().orElse(0L);
+            }
+
+            // 构造 contacts.addContact 请求
+            var request = ImmutableAddContact.of(
+                    ImmutableInputUser.of(userId, accessHash),
+                    firstName != null ? firstName : "",
+                    lastName != null ? lastName : "",
+                    phone != null ? phone : ""
+            );
+
+            // 发送请求
+            client.getMtProtoClientGroup().send(DcId.main(), request)
+                    .block(Duration.ofSeconds(15));
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("success", true);
+            result.put("userId", userId);
+            result.put("firstName", firstName);
+            result.put("lastName", lastName);
+            result.put("timestamp", Instant.now().toString());
+            log.info("[{}] 添加好友成功: userId={}", sessionName, userId);
+            return result;
+
+        } catch (Exception e) {
+            log.error("[{}] 添加好友失败: target={}, error={}", sessionName, targetUserId, e.getMessage(), e);
+            throw new RuntimeException("添加好友失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 通过上传通讯录方式批量添加好友。
+     * 使用 contacts.importContacts TL 方法，通过手机号匹配已注册的 Telegram 用户。
+     *
+     * @param contacts 待导入的联系人列表，每个包含 phone、firstName、lastName
+     * @return 导入结果（已导入的用户列表、重试列表等）
+     */
+    public Map<String, Object> importContacts(List<Map<String, String>> contacts) {
+        checkConnected();
+        try {
+            if (contacts == null || contacts.isEmpty()) {
+                throw new IllegalArgumentException("联系人列表不能为空");
+            }
+
+            // 构造 InputPhoneContact 列表
+            List<InputPhoneContact> inputContacts = new ArrayList<>();
+            for (int i = 0; i < contacts.size(); i++) {
+                Map<String, String> contact = contacts.get(i);
+                String contactPhone = contact.getOrDefault("phone", "");
+                String contactFirstName = contact.getOrDefault("firstName", "");
+                String contactLastName = contact.getOrDefault("lastName", "");
+
+                if (contactPhone.isBlank()) {
+                    continue;
+                }
+
+                inputContacts.add(ImmutableInputPhoneContact.of(
+                        (long) i,  // client_id，用于关联导入结果
+                        contactPhone,
+                        contactFirstName,
+                        contactLastName
+                ));
+            }
+
+            if (inputContacts.isEmpty()) {
+                throw new IllegalArgumentException("没有有效的联系人（需要包含手机号）");
+            }
+
+            // 构造 contacts.importContacts 请求
+            var request = ImmutableImportContacts.of(inputContacts);
+
+            // 发送请求
+            ImportedContacts result = client.getMtProtoClientGroup()
+                    .send(DcId.main(), request)
+                    .block(Duration.ofSeconds(30));
+
+            // 构建返回结果
+            Map<String, Object> response = new LinkedHashMap<>();
+            if (result != null) {
+                // 已成功导入的联系人
+                List<Map<String, Object>> imported = new ArrayList<>();
+                result.imported().forEach(ic -> {
+                    Map<String, Object> item = new LinkedHashMap<>();
+                    item.put("userId", ic.userId());
+                    item.put("clientId", ic.clientId());
+                    imported.add(item);
+                });
+                response.put("imported", imported);
+                response.put("importedCount", imported.size());
+
+                // 需要重试的联系人
+                response.put("retryContacts", result.retryContacts());
+                response.put("retryCount", result.retryContacts().size());
+
+                // 返回的用户信息
+                List<Map<String, Object>> users = new ArrayList<>();
+                result.users().forEach(user -> {
+                    if (user instanceof BaseUser baseUser) {
+                        Map<String, Object> userInfo = new LinkedHashMap<>();
+                        userInfo.put("userId", baseUser.id());
+                        userInfo.put("firstName", baseUser.firstName());
+                        userInfo.put("lastName", baseUser.lastName());
+                        userInfo.put("username", baseUser.username());
+                        userInfo.put("phone", baseUser.phone());
+                        users.add(userInfo);
+                    }
+                });
+                response.put("users", users);
+            } else {
+                response.put("imported", List.of());
+                response.put("importedCount", 0);
+                response.put("retryContacts", List.of());
+                response.put("retryCount", 0);
+                response.put("users", List.of());
+            }
+
+            response.put("totalRequested", inputContacts.size());
+            response.put("timestamp", Instant.now().toString());
+
+            log.info("[{}] 导入通讯录完成: 请求{}个, 成功导入{}个",
+                    sessionName, inputContacts.size(), response.get("importedCount"));
+            return response;
+
+        } catch (Exception e) {
+            log.error("[{}] 导入通讯录失败: {}", sessionName, e.getMessage(), e);
+            throw new RuntimeException("导入通讯录失败: " + e.getMessage(), e);
         }
     }
 
