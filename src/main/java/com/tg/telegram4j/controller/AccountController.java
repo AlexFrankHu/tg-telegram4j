@@ -1,12 +1,14 @@
 package com.tg.telegram4j.controller;
 
+import com.tg.telegram4j.entity.TgTelethonAccount;
 import com.tg.telegram4j.model.*;
 import com.tg.telegram4j.service.TelegramAccountManager;
+import com.tg.telegram4j.service.TgTelethonAccountService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.Base64;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -16,25 +18,16 @@ import java.util.Map;
 public class AccountController {
 
     private final TelegramAccountManager accountManager;
+    private final TgTelethonAccountService accountService;
 
-    public AccountController(TelegramAccountManager accountManager) {
+    public AccountController(TelegramAccountManager accountManager,
+                             TgTelethonAccountService accountService) {
         this.accountManager = accountManager;
+        this.accountService = accountService;
     }
 
     /**
-     * 登录账号。
-     *
-     * <pre>
-     * curl -X POST http://localhost:8080/api/account/login \
-     *   -H "Content-Type: application/json" \
-     *   -d '{
-     *     "sessionName": "my_account",
-     *     "sessionData": "BASE64_ENCODED_SESSION_BYTES",
-     *     "autoReadMessages": true,
-     *     "proxy": { "host": "127.0.0.1", "port": 1080 },
-     *     "device": { "deviceModel": "Samsung Galaxy S21", "systemVersion": "Android 12", "appVersion": "9.0.0" }
-     *   }'
-     * </pre>
+     * 登录账号（通过请求参数传入 session 字节数据）。
      */
     @PostMapping("/login")
     public ApiResponse<SessionInfo> login(@RequestBody AccountLoginRequest request) {
@@ -49,15 +42,6 @@ public class AccountController {
 
     /**
      * 通过上传 .session 文件登录（multipart方式）。
-     *
-     * <pre>
-     * curl -X POST http://localhost:8080/api/account/login/upload \
-     *   -F "file=@account.session" \
-     *   -F "sessionName=my_account" \
-     *   -F "autoReadMessages=true" \
-     *   -F "proxyHost=127.0.0.1" \
-     *   -F "proxyPort=1080"
-     * </pre>
      */
     @PostMapping("/login/upload")
     public ApiResponse<SessionInfo> loginByUpload(
@@ -100,6 +84,110 @@ public class AccountController {
     }
 
     /**
+     * 从数据库加载指定账号并登录。
+     * 账号的 session_content、代理、设备信息都从 tg_telethon_account 表读取。
+     *
+     * <pre>
+     * curl -X POST http://localhost:8080/api/account/login/db/1
+     * </pre>
+     */
+    @PostMapping("/login/db/{accountId}")
+    public ApiResponse<SessionInfo> loginFromDb(@PathVariable Integer accountId) {
+        try {
+            TgTelethonAccount dbAccount = accountService.getById(accountId);
+            if (dbAccount == null) {
+                return ApiResponse.error("Account not found in database: id=" + accountId);
+            }
+            SessionInfo info = accountManager.loginFromDb(dbAccount);
+            return ApiResponse.ok("Login successful", info);
+        } catch (Exception e) {
+            log.error("DB login failed for account id={}", accountId, e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 从数据库加载指定手机号的账号并登录。
+     *
+     * <pre>
+     * curl -X POST http://localhost:8080/api/account/login/db/phone/84582563441
+     * </pre>
+     */
+    @PostMapping("/login/db/phone/{phone}")
+    public ApiResponse<SessionInfo> loginFromDbByPhone(@PathVariable String phone) {
+        try {
+            TgTelethonAccount dbAccount = accountService.getByPhone(phone);
+            if (dbAccount == null) {
+                return ApiResponse.error("Account not found in database: phone=" + phone);
+            }
+            SessionInfo info = accountManager.loginFromDb(dbAccount);
+            return ApiResponse.ok("Login successful", info);
+        } catch (Exception e) {
+            log.error("DB login failed for phone={}", phone, e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 批量从数据库加载指定状态的账号并登录。
+     *
+     * <pre>
+     * curl -X POST http://localhost:8080/api/account/login/db/batch?status=offline
+     * </pre>
+     */
+    @PostMapping("/login/db/batch")
+    public ApiResponse<List<Map<String, Object>>> loginBatchFromDb(
+            @RequestParam(value = "status", required = false, defaultValue = "offline") String status,
+            @RequestParam(value = "nodeId", required = false) String nodeId) {
+        try {
+            List<TgTelethonAccount> dbAccounts;
+            if (nodeId != null && !nodeId.isBlank()) {
+                dbAccounts = accountService.listByNodeId(nodeId);
+            } else {
+                dbAccounts = accountService.listByStatus(status);
+            }
+
+            List<Map<String, Object>> results = new ArrayList<>();
+            for (TgTelethonAccount dbAccount : dbAccounts) {
+                Map<String, Object> result = new java.util.LinkedHashMap<>();
+                result.put("phone", dbAccount.getPhone());
+                result.put("id", dbAccount.getId());
+                try {
+                    if (dbAccount.getSessionContent() == null || dbAccount.getSessionContent().length == 0) {
+                        result.put("success", false);
+                        result.put("error", "No session_content");
+                    } else {
+                        SessionInfo info = accountManager.loginFromDb(dbAccount);
+                        result.put("success", true);
+                        result.put("userId", info.getUserId());
+                        result.put("username", info.getUsername());
+                    }
+                } catch (Exception e) {
+                    result.put("success", false);
+                    result.put("error", e.getMessage());
+                }
+                results.add(result);
+            }
+            return ApiResponse.ok("Batch login completed", results);
+        } catch (Exception e) {
+            log.error("Batch DB login failed", e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 查询数据库中的所有账号记录。
+     */
+    @GetMapping("/db/list")
+    public ApiResponse<List<TgTelethonAccount>> listDbAccounts(
+            @RequestParam(value = "status", required = false) String status) {
+        if (status != null && !status.isBlank()) {
+            return ApiResponse.ok(accountService.listByStatus(status));
+        }
+        return ApiResponse.ok(accountService.listAll());
+    }
+
+    /**
      * 获取所有在线账号列表。
      */
     @GetMapping("/list")
@@ -135,12 +223,6 @@ public class AccountController {
 
     /**
      * 发送纯文本消息。
-     *
-     * <pre>
-     * curl -X POST http://localhost:8080/api/account/my_account/send/text \
-     *   -H "Content-Type: application/json" \
-     *   -d '{"chatId":"123456789","text":"Hello!"}'
-     * </pre>
      */
     @PostMapping("/{sessionName}/send/text")
     public ApiResponse<Map<String, Object>> sendText(
@@ -158,18 +240,6 @@ public class AccountController {
 
     /**
      * 发送图片消息（通过URL或上传字节数组）。
-     *
-     * <pre>
-     * # 通过URL发送:
-     * curl -X POST http://localhost:8080/api/account/my_account/send/image \
-     *   -H "Content-Type: application/json" \
-     *   -d '{"chatId":"123456789","imageUrl":"https://example.com/photo.jpg"}'
-     *
-     * # 通过base64图片数据发送:
-     * curl -X POST http://localhost:8080/api/account/my_account/send/image \
-     *   -H "Content-Type: application/json" \
-     *   -d '{"chatId":"123456789","imageData":"BASE64...","imageFileName":"photo.jpg"}'
-     * </pre>
      */
     @PostMapping("/{sessionName}/send/image")
     public ApiResponse<Map<String, Object>> sendImage(
@@ -196,12 +266,6 @@ public class AccountController {
 
     /**
      * 发送 文本+图片 消息（caption模式）。
-     *
-     * <pre>
-     * curl -X POST http://localhost:8080/api/account/my_account/send/caption \
-     *   -H "Content-Type: application/json" \
-     *   -d '{"chatId":"123456789","caption":"Look at this!","imageUrl":"https://example.com/photo.jpg"}'
-     * </pre>
      */
     @PostMapping("/{sessionName}/send/caption")
     public ApiResponse<Map<String, Object>> sendCaption(
