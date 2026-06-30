@@ -178,7 +178,8 @@ public class TelegramClientService {
                     .getUsers(List.of(InputUserSelf.instance()))
                     .block(Duration.ofSeconds(10));
 
-            if (users != null && !users.isEmpty() && users.get(0) instanceof BaseUser self) {
+            if (users != null && !users.isEmpty() && users.get(0) instanceof BaseUser) {
+                BaseUser self = (BaseUser) users.get(0);
                 String username = self.username();
 
                 return SessionInfo.builder()
@@ -237,9 +238,17 @@ public class TelegramClientService {
         return DEFAULT_API_HASH;
     }
 
-    private record ClientHolder(
-            MTProtoTelegramClient client,
-            TelethonImportStoreLayout storeLayout,
-            SessionInfo cachedInfo
-    ) {}
+    private static class ClientHolder {
+        private final MTProtoTelegramClient client;
+        private final TelethonImportStoreLayout storeLayout;
+        private final SessionInfo cachedInfo;
+
+        ClientHolder(MTProtoTelegramClient client,
+                     TelethonImportStoreLayout storeLayout,
+                     SessionInfo cachedInfo) {
+            this.client = client;
+            this.storeLayout = storeLayout;
+            this.cachedInfo = cachedInfo;
+        }
+    }
 }
