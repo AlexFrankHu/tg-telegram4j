@@ -24,8 +24,6 @@ mybatis-plus:
 
 telegram:
   data-dir: ./data
-  api-id: 0
-  api-hash: ""
 
 logging:
   level:

@@ -1,7 +1,6 @@
 package com.tg.telegram4j.service;
 
 import com.tg.telegram4j.account.TelegramAccount;
-import com.tg.telegram4j.config.TelegramProperties;
 import com.tg.telegram4j.entity.TgTelethonAccount;
 import com.tg.telegram4j.model.AccountLoginRequest;
 import com.tg.telegram4j.model.DeviceInfo;
@@ -9,6 +8,7 @@ import com.tg.telegram4j.model.ProxyInfo;
 import com.tg.telegram4j.model.SessionInfo;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -20,13 +20,13 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class TelegramAccountManager {
 
-    private final TelegramProperties properties;
+    @Value("${telegram.data-dir:./data}")
+    private String dataDir;
+
     private final TgTelethonAccountService accountService;
     private final Map<String, TelegramAccount> accounts = new ConcurrentHashMap<>();
 
-    public TelegramAccountManager(TelegramProperties properties,
-                                  TgTelethonAccountService accountService) {
-        this.properties = properties;
+    public TelegramAccountManager(TgTelethonAccountService accountService) {
         this.accountService = accountService;
     }
 
@@ -41,7 +41,7 @@ public class TelegramAccountManager {
 
         TelegramAccount account = new TelegramAccount(
                 name,
-                properties.getDataDir(),
+                dataDir,
                 request.getProxy(),
                 request.getDevice(),
                 request.isAutoReadMessages(),
@@ -96,7 +96,7 @@ public class TelegramAccountManager {
 
         TelegramAccount account = new TelegramAccount(
                 name,
-                properties.getDataDir(),
+                dataDir,
                 proxyInfo,
                 deviceInfo,
                 false,
