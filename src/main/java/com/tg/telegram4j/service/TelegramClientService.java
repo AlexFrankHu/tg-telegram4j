@@ -5,6 +5,7 @@ import com.tg.telegram4j.model.SessionInfo;
 import com.tg.telegram4j.session.TelethonSessionData;
 import com.tg.telegram4j.session.TelethonSessionReader;
 import com.tg.telegram4j.store.TelethonImportStoreLayout;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -44,6 +45,26 @@ public class TelegramClientService {
 
     public TelegramClientService(TelegramProperties properties) {
         this.properties = properties;
+    }
+
+    /**
+     * Auto-login on startup if sessionName and sessionFilePath are configured.
+     */
+    @PostConstruct
+    public void autoLogin() {
+        String sessionName = properties.getSessionName();
+        String sessionFilePath = properties.getSessionFilePath();
+        if (sessionName != null && !sessionName.isBlank()
+                && sessionFilePath != null && !sessionFilePath.isBlank()) {
+            log.info("Auto-login: sessionName={}, sessionFilePath={}", sessionName, sessionFilePath);
+            try {
+                SessionInfo info = loginFromFile(sessionName, sessionFilePath, null, null);
+                log.info("Auto-login successful: userId={}, name={}",
+                        info.getUserId(), info.getFirstName());
+            } catch (Exception e) {
+                log.error("Auto-login failed: {}", e.getMessage(), e);
+            }
+        }
     }
 
     /**

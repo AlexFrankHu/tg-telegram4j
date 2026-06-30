@@ -13,6 +13,11 @@ public class TelegramProperties {
     private int apiId = 0;
     private String apiHash = "";
 
+    /** Session name for auto-login on startup */
+    private String sessionName;
+    /** Path to .session file for auto-login on startup */
+    private String sessionFilePath;
+
     /** SOCKS5 proxy config (for environments that cannot access Telegram directly) */
     private Proxy proxy = new Proxy();
 

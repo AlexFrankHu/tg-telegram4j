@@ -4,6 +4,9 @@ server:
 telegram:
   # Directory to store telegram4j session files (t4j.bin)
   data-dir: ./data
+  # Session auto-login on startup (configure these to auto-connect when app starts)
+  session-name: ""
+  session-file-path: ""
   # Default API credentials (can be overridden per request)
   # Get yours from https://my.telegram.org/apps
   api-id: 0
