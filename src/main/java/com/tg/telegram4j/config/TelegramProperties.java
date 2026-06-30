@@ -13,12 +13,12 @@ public class TelegramProperties {
     private int apiId = 0;
     private String apiHash = "";
 
-    /** Session name for auto-login on startup */
+    /** 启动时自动登录的会话名称 */
     private String sessionName;
-    /** Path to .session file for auto-login on startup */
+    /** 启动时自动登录的 .session 文件路径 */
     private String sessionFilePath;
 
-    /** SOCKS5 proxy config (for environments that cannot access Telegram directly) */
+    /** SOCKS5 代理配置（用于无法直接访问 Telegram 的环境） */
     private Proxy proxy = new Proxy();
 
     @Data

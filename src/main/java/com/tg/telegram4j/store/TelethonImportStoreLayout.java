@@ -11,12 +11,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Custom {@link FileStoreLayout} that can bootstrap from a Telethon .session file's
- * auth_key. On {@link #initialize()}, if the backing t4j.bin has no existing session,
- * the imported auth_key is injected so telegram4j skips the auth flow entirely.
+ * 自定义的 {@link FileStoreLayout}，可以从 Telethon .session 文件的
+ * auth_key 启动。在 {@link #initialize()} 时，如果 t4j.bin 中没有已有会话，
+ * 则注入导入的 auth_key，使 telegram4j 跳过认证流程直接登录。
  *
- * <p>After the first successful connection, the session is persisted to t4j.bin
- * by the parent class, so subsequent startups no longer need the .session file.
+ * <p>首次成功连接后，会话会由父类自动持久化到 t4j.bin，
+ * 后续启动不再需要 .session 文件。
  */
 public class TelethonImportStoreLayout extends FileStoreLayout {
 
@@ -44,9 +44,8 @@ public class TelethonImportStoreLayout extends FileStoreLayout {
     }
 
     /**
-     * Allow persistence even when selfId is not yet known (it will be 0
-     * on the very first import from a .session file). The parent class
-     * normally requires selfId != 0 before saving.
+     * 即使 selfId 还未知也允许持久化（首次从 .session 文件导入时 selfId 为 0）。
+     * 父类通常要求 selfId != 0 才保存。
      */
     @Override
     protected boolean isAssociatedToUser() {
@@ -54,8 +53,8 @@ public class TelethonImportStoreLayout extends FileStoreLayout {
     }
 
     /**
-     * Manually set the self user id after a successful connection.
-     * This enables proper session persistence to t4j.bin.
+     * 连接成功后手动设置自身用户ID。
+     * 这样才能正确地将会话持久化到 t4j.bin。
      */
     public void updateSelfId(long id) {
         this.selfId = id;

@@ -12,16 +12,16 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 /**
- * Reads a Telethon .session file (SQLite database) and extracts
- * the MTProto auth_key and DC information.
+ * 读取 Telethon .session 文件（SQLite 数据库），提取
+ * MTProto auth_key 和 DC 信息。
  *
- * <p>Telethon session SQLite schema (key table):
+ * <p>Telethon session SQLite 表结构：
  * <pre>
  * CREATE TABLE sessions (
  *   dc_id        integer primary key,
  *   server_address text,
  *   port         integer,
- *   auth_key     blob     -- 256 bytes, the MTProto authorization key
+ *   auth_key     blob     -- 256字节，MTProto 认证密钥
  * );
  * </pre>
  */
@@ -31,15 +31,15 @@ public class TelethonSessionReader {
     private TelethonSessionReader() {}
 
     /**
-     * Read session data from a .session file on disk.
+     * 从磁盘上的 .session 文件读取会话数据。
      */
     public static TelethonSessionData readFromFile(String filePath) {
         return readFromSqlite(filePath);
     }
 
     /**
-     * Read session data from raw bytes (e.g. uploaded via REST).
-     * Writes to a temp file since SQLite JDBC requires a file path.
+     * 从原始字节数组读取会话数据（例如通过 REST 上传）。
+     * 因为 SQLite JDBC 需要文件路径，所以先写入临时文件。
      */
     public static TelethonSessionData readFromBytes(byte[] sessionBytes) {
         Path tempFile = null;

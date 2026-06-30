@@ -86,7 +86,7 @@ public class TelegramAccount {
     }
 
     /**
-     * Login using session byte array.
+     * 使用 session 字节数组登录。
      */
     public SessionInfo login(byte[] sessionBytes) {
         if (connected) {
@@ -120,7 +120,7 @@ public class TelegramAccount {
                             PreferredEntityRetriever.Setting.FULL,
                             PreferredEntityRetriever.Setting.FULL));
 
-            // Set device fingerprint if provided
+            // 设置设备指纹（如果提供了的话）
             if (deviceInfo != null) {
                 InitConnectionParams params = new InitConnectionParams(
                         deviceInfo.getAppVersion() != null ? deviceInfo.getAppVersion() : "1.0.0",
@@ -134,7 +134,7 @@ public class TelegramAccount {
                 bootstrap.setInitConnectionParams(params);
             }
 
-            // Set per-account SOCKS5 proxy if provided
+            // 设置独立的 SOCKS5 代理（如果提供了的话）
             if (proxyInfo != null && proxyInfo.getHost() != null && !proxyInfo.getHost().isBlank()) {
                 log.info("[{}] Using SOCKS5 proxy: {}:{}", sessionName, proxyInfo.getHost(), proxyInfo.getPort());
                 SocksProxyResources.ProxySpec proxySpec = ProxyResources.ofSocks5()
@@ -162,10 +162,10 @@ public class TelegramAccount {
 
             storeLayout.updateSelfId(selfId.asLong());
 
-            // Subscribe to incoming messages
+            // 订阅接收消息
             subscribeMessages();
 
-            // Fetch self info
+            // 获取自身账号信息
             sessionInfo = fetchSelfInfo(selfId);
             connected = true;
 
@@ -178,7 +178,7 @@ public class TelegramAccount {
     }
 
     /**
-     * Send a text-only message.
+     * 发送纯文本消息。
      */
     public Map<String, Object> sendTextMessage(String chatId, String text) {
         checkConnected();
@@ -194,7 +194,7 @@ public class TelegramAccount {
     }
 
     /**
-     * Send an image-only message (photo from URL).
+     * 发送纯图片消息（通过图片URL）。
      */
     public Map<String, Object> sendImageMessage(String chatId, String imageUrl) {
         checkConnected();
@@ -213,14 +213,14 @@ public class TelegramAccount {
     }
 
     /**
-     * Send an image from byte[] data.
+     * 发送纯图片消息（通过图片字节数组上传）。
      */
     public Map<String, Object> sendImageMessage(String chatId, byte[] imageData, String fileName) {
         checkConnected();
         try {
             Chat chat = resolveChat(chatId);
 
-            // Write to temp file, upload, then delete
+            // 写到临时文件，上传后删除
             Path tempFile = Files.createTempFile("tg_upload_", "_" + (fileName != null ? fileName : "photo.jpg"));
             Files.write(tempFile, imageData);
 
@@ -229,7 +229,7 @@ public class TelegramAccount {
             Files.deleteIfExists(tempFile);
 
             if (inputFile == null) {
-                throw new RuntimeException("File upload returned null");
+                throw new RuntimeException("文件上传返回空");
             }
 
             InputMediaUploadedPhotoSpec photoSpec = InputMediaUploadedPhotoSpec.of(inputFile);
@@ -237,15 +237,15 @@ public class TelegramAccount {
                     .withMedia(photoSpec);
             Message sent = chat.sendMessage(spec)
                     .block(Duration.ofSeconds(15));
-            return buildSendResult(sent, chatId, "[uploaded photo]");
+            return buildSendResult(sent, chatId, "[上传图片]");
         } catch (Exception e) {
-            log.error("[{}] Failed to send uploaded image to '{}': {}", sessionName, chatId, e.getMessage(), e);
-            throw new RuntimeException("Send image failed: " + e.getMessage(), e);
+            log.error("[{}] 发送上传图片到 '{}' 失败: {}", sessionName, chatId, e.getMessage(), e);
+            throw new RuntimeException("发送图片失败: " + e.getMessage(), e);
         }
     }
 
     /**
-     * Send a text + image message (caption mode) with image URL.
+     * 发送 文本+图片 消息（caption模式，通过图片URL）。
      */
     public Map<String, Object> sendCaptionMessage(String chatId, String caption, String imageUrl) {
         checkConnected();
@@ -264,7 +264,7 @@ public class TelegramAccount {
     }
 
     /**
-     * Send a text + image message (caption mode) with uploaded image bytes.
+     * 发送 文本+图片 消息（caption模式，通过上传图片字节数组）。
      */
     public Map<String, Object> sendCaptionMessage(String chatId, String caption, byte[] imageData, String fileName) {
         checkConnected();
@@ -279,7 +279,7 @@ public class TelegramAccount {
             Files.deleteIfExists(tempFile);
 
             if (inputFile == null) {
-                throw new RuntimeException("File upload returned null");
+                throw new RuntimeException("文件上传返回空");
             }
 
             InputMediaUploadedPhotoSpec photoSpec = InputMediaUploadedPhotoSpec.of(inputFile);
@@ -287,15 +287,15 @@ public class TelegramAccount {
                     .withMedia(photoSpec);
             Message sent = chat.sendMessage(spec)
                     .block(Duration.ofSeconds(15));
-            return buildSendResult(sent, chatId, caption + " [uploaded photo]");
+            return buildSendResult(sent, chatId, caption + " [上传图片]");
         } catch (Exception e) {
-            log.error("[{}] Failed to send caption to '{}': {}", sessionName, chatId, e.getMessage(), e);
-            throw new RuntimeException("Send caption failed: " + e.getMessage(), e);
+            log.error("[{}] 发送caption到 '{}' 失败: {}", sessionName, chatId, e.getMessage(), e);
+            throw new RuntimeException("发送caption失败: " + e.getMessage(), e);
         }
     }
 
     /**
-     * Disconnect this account.
+     * 断开该账号的连接。
      */
     public void disconnect() {
         if (client != null) {
@@ -309,7 +309,7 @@ public class TelegramAccount {
         log.info("[{}] Disconnected", sessionName);
     }
 
-    // ---- Private methods ----
+    // ---- 私有方法 ----
 
     private void subscribeMessages() {
         client.on(SendMessageEvent.class)
@@ -318,7 +318,7 @@ public class TelegramAccount {
                     Id chatId = msg.getChatId();
                     String messageType = getMessageType(msg);
 
-                    // Author info
+                    // 发送者信息
                     String authorId = msg.getAuthorId()
                             .map(id -> String.valueOf(id.asLong()))
                             .orElse("unknown");
@@ -326,7 +326,7 @@ public class TelegramAccount {
                             .map(id -> id.getType().name())
                             .orElse("UNKNOWN");
 
-                    // Chat info
+                    // 聊天信息
                     String chatName = event.getChat()
                             .map(Chat::getName)
                             .orElse("N/A");
@@ -334,22 +334,22 @@ public class TelegramAccount {
                             .map(c -> c.getType().name())
                             .orElse("UNKNOWN");
 
-                    // Author details from event
+                    // 发送者详细信息
                     String authorDetails = event.getAuthor()
                             .map(author -> author.getUsername().orElse("N/A"))
                             .orElse("N/A");
 
-                    log.info("[{}] === New Message ===", sessionName);
-                    log.info("[{}]   Type: {}", sessionName, messageType);
-                    log.info("[{}]   ChatId: {} ({})", sessionName, chatId.asLong(), chatType);
-                    log.info("[{}]   ChatName: {}", sessionName, chatName);
-                    log.info("[{}]   AuthorId: {} ({})", sessionName, authorId, authorType);
-                    log.info("[{}]   AuthorName: {}", sessionName, authorDetails);
-                    log.info("[{}]   Content: {}", sessionName, msg.getContent());
-                    log.info("[{}]   MessageId: {}", sessionName, msg.getId());
+                    log.info("[{}] === 收到新消息 ===", sessionName);
+                    log.info("[{}]   消息类型: {}", sessionName, messageType);
+                    log.info("[{}]   聊天ID: {} ({})", sessionName, chatId.asLong(), chatType);
+                    log.info("[{}]   聊天名称: {}", sessionName, chatName);
+                    log.info("[{}]   发送者ID: {} ({})", sessionName, authorId, authorType);
+                    log.info("[{}]   发送者用户名: {}", sessionName, authorDetails);
+                    log.info("[{}]   消息内容: {}", sessionName, msg.getContent());
+                    log.info("[{}]   消息ID: {}", sessionName, msg.getId());
                     log.info("[{}] ==================", sessionName);
 
-                    // Auto-read if enabled
+                    // 如果开启了自动已读，则标记消息为已读
                     if (autoReadMessages) {
                         markAsRead(chatId, msg.getId());
                     }

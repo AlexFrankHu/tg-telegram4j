@@ -45,7 +45,7 @@ public class TelegramClientService {
 
     private final TelegramProperties properties;
 
-    /** Active clients keyed by session name. */
+    /** 活跃客户端，以会话名称为键。 */
     private final Map<String, ClientHolder> clients = new ConcurrentHashMap<>();
 
     public TelegramClientService(TelegramProperties properties) {
@@ -53,7 +53,7 @@ public class TelegramClientService {
     }
 
     /**
-     * Auto-login on startup if sessionName and sessionFilePath are configured.
+     * 应用启动时自动登录（如果配置了 sessionName 和 sessionFilePath）。
      */
     @PostConstruct
     public void autoLogin() {
@@ -73,7 +73,7 @@ public class TelegramClientService {
     }
 
     /**
-     * Import a Telethon .session file (from file path) and connect.
+     * 导入 Telethon .session 文件（通过文件路径）并连接。
      */
     public SessionInfo loginFromFile(String sessionName, String sessionFilePath,
                                      Integer apiId, String apiHash) {
@@ -82,7 +82,7 @@ public class TelegramClientService {
     }
 
     /**
-     * Import a Telethon .session file (from raw bytes) and connect.
+     * 导入 Telethon .session 文件（通过原始字节数组）并连接。
      */
     public SessionInfo loginFromBytes(String sessionName, byte[] sessionBytes,
                                       Integer apiId, String apiHash) {
@@ -91,7 +91,7 @@ public class TelegramClientService {
     }
 
     /**
-     * Get info about all active sessions.
+     * 获取所有活跃会话信息。
      */
     public List<SessionInfo> listSessions() {
         List<SessionInfo> result = new ArrayList<>();
@@ -102,7 +102,7 @@ public class TelegramClientService {
     }
 
     /**
-     * Get info about a specific session.
+     * 获取指定会话的信息。
      */
     public SessionInfo getSession(String sessionName) {
         ClientHolder holder = clients.get(sessionName);
@@ -113,7 +113,7 @@ public class TelegramClientService {
     }
 
     /**
-     * Disconnect a session.
+     * 断开指定会话。
      */
     public boolean disconnect(String sessionName) {
         ClientHolder holder = clients.remove(sessionName);
@@ -129,7 +129,7 @@ public class TelegramClientService {
     }
 
     /**
-     * Disconnect all sessions (called on app shutdown).
+     * 断开所有会话（应用关闭时调用）。
      */
     public void disconnectAll() {
         for (String name : clients.keySet()) {
@@ -145,11 +145,11 @@ public class TelegramClientService {
 
         log.info("Importing Telethon session '{}': dc_id={}", sessionName, sessionData.getDcId());
 
-        // Ensure data directory exists
+        // 确保数据目录存在
         File dataDir = new File(properties.getDataDir());
         dataDir.mkdirs();
 
-        // Create the custom store layout that injects the auth_key from .session
+        // 创建自定义的 StoreLayout，注入 .session 文件中的 auth_key
         Path t4jBinPath = Path.of(properties.getDataDir(), sessionName + ".t4j.bin");
         TelethonImportStoreLayout storeLayout = new TelethonImportStoreLayout(
                 new StoreLayoutImpl(Function.identity()),
@@ -158,9 +158,9 @@ public class TelegramClientService {
                 sessionData.getAuthKey()
         );
 
-        // AuthorizationHandler that returns empty Mono — this is a fallback.
-        // If the auth_key from .session is valid, this handler is never invoked.
-        // If it IS invoked (401), it means the session has expired.
+        // 备用的认证处理器。
+        // 如果 .session 中的 auth_key 有效，这个处理器不会被调用。
+        // 如果被调用了（401），说明 session 已过期。
         AuthorizationHandler fallbackHandler = resources ->
                 Mono.error(new RuntimeException(
                         "Session auth_key is invalid or expired. " +
@@ -175,7 +175,7 @@ public class TelegramClientService {
                             PreferredEntityRetriever.Setting.FULL,
                             PreferredEntityRetriever.Setting.FULL));
 
-            // Configure SOCKS5 proxy if enabled
+            // 配置 SOCKS5 代理（如果开启）
             TelegramProperties.Proxy proxyConfig = properties.getProxy();
             if (proxyConfig.isEnabled()) {
                 log.info("Using SOCKS5 proxy: {}:{}", proxyConfig.getHost(), proxyConfig.getPort());
@@ -201,17 +201,17 @@ public class TelegramClientService {
                 throw new RuntimeException("Failed to connect — client is null");
             }
 
-            // Fetch self user info
+            // 获取自身用户信息
             Id selfId = client.getSelfId();
             log.info("Session '{}' connected successfully, selfId={}", sessionName, selfId);
 
-            // Update selfId in store for proper persistence
+            // 更新 store 中的 selfId，确保正确持久化
             storeLayout.updateSelfId(selfId.asLong());
 
-            // Subscribe to incoming messages
+            // 订阅接收消息
             subscribeMessages(sessionName, client);
 
-            // Fetch full user details
+            // 获取完整用户详情
             SessionInfo info = fetchSelfInfo(sessionName, client, selfId);
 
             clients.put(sessionName, new ClientHolder(client, storeLayout, info));
@@ -245,12 +245,12 @@ public class TelegramClientService {
     }
 
     /**
-     * Send a text message to a chat/user.
+     * 发送文本消息到聊天/用户。
      *
-     * @param sessionName the session to send from
-     * @param chatId      the target chat/user ID (numeric ID or @username)
-     * @param text        the message text
-     * @return the sent message info
+     * @param sessionName 发送消息的会话名称
+     * @param chatId      目标聊天/用户ID（数字ID或@用户名）
+     * @param text        消息文本
+     * @return 发送结果信息
      */
     public Map<String, Object> sendMessage(String sessionName, String chatId, String text) {
         ClientHolder holder = clients.get(sessionName);
@@ -261,13 +261,13 @@ public class TelegramClientService {
         MTProtoTelegramClient client = holder.client;
 
         try {
-            // Resolve peer: try as numeric ID first, then as username
+            // 解析对端：先尝试数字ID，再尝试用户名
             PeerId peerId;
             try {
                 long numericId = Long.parseLong(chatId);
                 peerId = PeerId.of(Id.ofUser(numericId));
             } catch (NumberFormatException e) {
-                // Treat as username (with or without @)
+                // 当作用户名处理（带或不带@）
                 String username = chatId.startsWith("@") ? chatId.substring(1) : chatId;
                 peerId = PeerId.of(username);
             }
@@ -341,7 +341,7 @@ public class TelegramClientService {
                 .build();
     }
 
-    // Telegram Desktop public credentials (same as Telethon's built-in defaults)
+    // Telegram Desktop 公开的 API 凭证（与 Telethon 内置默认值相同）
     private static final int DEFAULT_API_ID = 2040;
     private static final String DEFAULT_API_HASH = "b18441a1ff607e10a989891a5462e627";
 

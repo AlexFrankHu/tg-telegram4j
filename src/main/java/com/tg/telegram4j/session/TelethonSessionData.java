@@ -4,10 +4,10 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 /**
- * Data extracted from a Telethon .session SQLite file.
+ * 从 Telethon .session SQLite 文件中提取的数据。
  * <p>
- * The .session file contains a {@code sessions} table with columns:
- * dc_id (int), server_address (text), port (int), auth_key (blob 256 bytes).
+ * .session 文件包含一张 {@code sessions} 表，字段为：
+ * dc_id (int), server_address (text), port (int), auth_key (blob 256字节)。
  */
 @Data
 @AllArgsConstructor

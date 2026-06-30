@@ -22,7 +22,7 @@ public class AccountController {
     }
 
     /**
-     * Login an account.
+     * 登录账号。
      *
      * <pre>
      * curl -X POST http://localhost:8080/api/account/login \
@@ -48,7 +48,7 @@ public class AccountController {
     }
 
     /**
-     * Login by uploading a .session file (multipart).
+     * 通过上传 .session 文件登录（multipart方式）。
      *
      * <pre>
      * curl -X POST http://localhost:8080/api/account/login/upload \
@@ -100,7 +100,7 @@ public class AccountController {
     }
 
     /**
-     * List all active accounts.
+     * 获取所有在线账号列表。
      */
     @GetMapping("/list")
     public ApiResponse<List<SessionInfo>> listAccounts() {
@@ -108,7 +108,7 @@ public class AccountController {
     }
 
     /**
-     * Get a specific account info.
+     * 获取指定账号信息。
      */
     @GetMapping("/{sessionName}")
     public ApiResponse<SessionInfo> getAccount(@PathVariable String sessionName) {
@@ -122,7 +122,7 @@ public class AccountController {
     }
 
     /**
-     * Disconnect an account.
+     * 断开账号连接。
      */
     @PostMapping("/{sessionName}/disconnect")
     public ApiResponse<Void> disconnect(@PathVariable String sessionName) {
@@ -134,7 +134,7 @@ public class AccountController {
     }
 
     /**
-     * Send a text message.
+     * 发送纯文本消息。
      *
      * <pre>
      * curl -X POST http://localhost:8080/api/account/my_account/send/text \
@@ -157,15 +157,15 @@ public class AccountController {
     }
 
     /**
-     * Send an image message (by URL or uploaded bytes).
+     * 发送图片消息（通过URL或上传字节数组）。
      *
      * <pre>
-     * # By URL:
+     * # 通过URL发送:
      * curl -X POST http://localhost:8080/api/account/my_account/send/image \
      *   -H "Content-Type: application/json" \
      *   -d '{"chatId":"123456789","imageUrl":"https://example.com/photo.jpg"}'
      *
-     * # By base64 image data:
+     * # 通过base64图片数据发送:
      * curl -X POST http://localhost:8080/api/account/my_account/send/image \
      *   -H "Content-Type: application/json" \
      *   -d '{"chatId":"123456789","imageData":"BASE64...","imageFileName":"photo.jpg"}'
@@ -195,7 +195,7 @@ public class AccountController {
     }
 
     /**
-     * Send a text + image message (caption mode).
+     * 发送 文本+图片 消息（caption模式）。
      *
      * <pre>
      * curl -X POST http://localhost:8080/api/account/my_account/send/caption \

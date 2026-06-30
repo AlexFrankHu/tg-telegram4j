@@ -25,7 +25,7 @@ public class TelegramAccountManager {
     }
 
     /**
-     * Login an account with the given request parameters.
+     * 登录账号。
      */
     public SessionInfo login(AccountLoginRequest request) {
         String name = request.getSessionName();
@@ -50,14 +50,14 @@ public class TelegramAccountManager {
     }
 
     /**
-     * Get an account by name.
+     * 根据名称获取账号对象。
      */
     public TelegramAccount getAccount(String sessionName) {
         return accounts.get(sessionName);
     }
 
     /**
-     * List all active accounts.
+     * 获取所有在线账号列表。
      */
     public List<SessionInfo> listAccounts() {
         List<SessionInfo> list = new ArrayList<>();
@@ -76,7 +76,7 @@ public class TelegramAccountManager {
     }
 
     /**
-     * Disconnect a specific account.
+     * 断开指定账号的连接。
      */
     public boolean disconnect(String sessionName) {
         TelegramAccount account = accounts.remove(sessionName);
@@ -89,7 +89,7 @@ public class TelegramAccountManager {
     }
 
     /**
-     * Disconnect all accounts.
+     * 断开所有账号的连接（应用关闭时调用）。
      */
     @PreDestroy
     public void disconnectAll() {
@@ -100,7 +100,7 @@ public class TelegramAccountManager {
     }
 
     /**
-     * Send a text message.
+     * 发送纯文本消息。
      */
     public Map<String, Object> sendTextMessage(String sessionName, String chatId, String text) {
         TelegramAccount account = getAccountOrThrow(sessionName);
@@ -108,7 +108,7 @@ public class TelegramAccountManager {
     }
 
     /**
-     * Send an image message (by URL).
+     * 发送图片消息（通过URL）。
      */
     public Map<String, Object> sendImageMessage(String sessionName, String chatId, String imageUrl) {
         TelegramAccount account = getAccountOrThrow(sessionName);
@@ -116,7 +116,7 @@ public class TelegramAccountManager {
     }
 
     /**
-     * Send an image message (by byte data).
+     * 发送图片消息（通过字节数组）。
      */
     public Map<String, Object> sendImageMessage(String sessionName, String chatId,
                                                  byte[] imageData, String fileName) {
@@ -125,7 +125,7 @@ public class TelegramAccountManager {
     }
 
     /**
-     * Send a text + image (caption) message by URL.
+     * 发送 文本+图片(caption) 消息（通过URL）。
      */
     public Map<String, Object> sendCaptionMessage(String sessionName, String chatId,
                                                    String caption, String imageUrl) {
@@ -134,7 +134,7 @@ public class TelegramAccountManager {
     }
 
     /**
-     * Send a text + image (caption) message by uploaded bytes.
+     * 发送 文本+图片(caption) 消息（通过上传字节数组）。
      */
     public Map<String, Object> sendCaptionMessage(String sessionName, String chatId,
                                                    String caption, byte[] imageData, String fileName) {

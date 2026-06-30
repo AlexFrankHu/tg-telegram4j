@@ -4,12 +4,12 @@ import lombok.Data;
 
 @Data
 public class LoginRequest {
-    /** Unique name for this session (used as storage key) */
+    /** 会话唯一名称（用作存储键） */
     private String sessionName;
-    /** Path to the .session file on server disk (alternative to file upload) */
+    /** 服务器磁盘上 .session 文件的路径（文件上传的替代方式） */
     private String sessionFilePath;
-    /** Telegram API ID from https://my.telegram.org/apps */
+    /** Telegram API ID（来自 https://my.telegram.org/apps），可选 */
     private Integer apiId;
-    /** Telegram API Hash from https://my.telegram.org/apps */
+    /** Telegram API Hash（来自 https://my.telegram.org/apps），可选 */
     private String apiHash;
 }

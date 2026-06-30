@@ -23,14 +23,14 @@ public class SessionController {
     }
 
     /**
-     * Login by uploading a .session file.
+     * 通过上传 .session 文件登录。
      *
      * <pre>
      * curl -X POST http://localhost:8080/api/session/upload \
      *   -F "file=@/path/to/account.session" \
      *   -F "sessionName=my_account"
      * </pre>
-     * apiId and apiHash are optional — defaults to Telegram Desktop's public credentials.
+     * apiId 和 apiHash 可选 —— 默认使用 Telegram Desktop 的公开凭证。
      */
     @PostMapping("/upload")
     public ApiResponse<SessionInfo> loginByUpload(
@@ -49,14 +49,14 @@ public class SessionController {
     }
 
     /**
-     * Login by providing the path to a .session file on the server.
+     * 通过服务器上的 .session 文件路径登录。
      *
      * <pre>
      * curl -X POST http://localhost:8080/api/session/import \
      *   -H "Content-Type: application/json" \
      *   -d '{"sessionName":"my_account","sessionFilePath":"/data/account.session"}'
      * </pre>
-     * apiId and apiHash are optional — defaults to Telegram Desktop's public credentials.
+     * apiId 和 apiHash 可选 —— 默认使用 Telegram Desktop 的公开凭证。
      */
     @PostMapping("/import")
     public ApiResponse<SessionInfo> loginByPath(@RequestBody LoginRequest request) {
@@ -74,7 +74,7 @@ public class SessionController {
     }
 
     /**
-     * List all active sessions.
+     * 获取所有活跃会话列表。
      */
     @GetMapping("/list")
     public ApiResponse<List<SessionInfo>> listSessions() {
@@ -82,7 +82,7 @@ public class SessionController {
     }
 
     /**
-     * Get info about a specific session.
+     * 获取指定会话的信息。
      */
     @GetMapping("/{sessionName}")
     public ApiResponse<SessionInfo> getSession(@PathVariable String sessionName) {
@@ -94,14 +94,14 @@ public class SessionController {
     }
 
     /**
-     * Send a text message.
+     * 发送文本消息。
      *
      * <pre>
      * curl -X POST http://localhost:8080/api/session/my_account/send \
      *   -H "Content-Type: application/json" \
      *   -d '{"chatId":"123456789","text":"Hello!"}'
      *
-     * # Or send by username:
+     * # 或者通过用户名发送:
      * curl -X POST http://localhost:8080/api/session/my_account/send \
      *   -H "Content-Type: application/json" \
      *   -d '{"chatId":"@username","text":"Hello!"}'
@@ -129,7 +129,7 @@ public class SessionController {
     }
 
     /**
-     * Disconnect a session.
+     * 断开指定会话。
      */
     @PostMapping("/{sessionName}/disconnect")
     public ApiResponse<Void> disconnect(@PathVariable String sessionName) {
