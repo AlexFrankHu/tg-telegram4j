@@ -13,7 +13,12 @@ import telegram4j.core.MTProtoTelegramClient;
 import telegram4j.core.auth.AuthorizationHandler;
 import telegram4j.core.retriever.EntityRetrievalStrategy;
 import telegram4j.core.retriever.PreferredEntityRetriever;
+import telegram4j.core.event.domain.message.SendMessageEvent;
+import telegram4j.core.object.Message;
+import telegram4j.core.object.chat.Chat;
+import telegram4j.core.spec.SendMessageSpec;
 import telegram4j.core.util.Id;
+import telegram4j.core.util.PeerId;
 import telegram4j.mtproto.resource.ProxyResources;
 import telegram4j.mtproto.resource.SocksProxyResources;
 import telegram4j.mtproto.resource.TcpClientResources;
@@ -203,6 +208,9 @@ public class TelegramClientService {
             // Update selfId in store for proper persistence
             storeLayout.updateSelfId(selfId.asLong());
 
+            // Subscribe to incoming messages
+            subscribeMessages(sessionName, client);
+
             // Fetch full user details
             SessionInfo info = fetchSelfInfo(sessionName, client, selfId);
 
@@ -213,6 +221,80 @@ public class TelegramClientService {
         } catch (Exception e) {
             log.error("Failed to login session '{}': {}", sessionName, e.getMessage(), e);
             throw new RuntimeException("Login failed: " + e.getMessage(), e);
+        }
+    }
+
+    private void subscribeMessages(String sessionName, MTProtoTelegramClient client) {
+        client.on(SendMessageEvent.class)
+                .subscribe(event -> {
+                    Message msg = event.getMessage();
+                    String text = msg.getContent();
+                    Id chatId = msg.getChatId();
+                    String authorInfo = msg.getAuthorId()
+                            .map(id -> String.valueOf(id.asLong()))
+                            .orElse("unknown");
+                    String chatName = event.getChat()
+                            .map(Chat::getName)
+                            .orElse(String.valueOf(chatId.asLong()));
+                    log.info("[{}] New message in '{}' from {}: {}",
+                            sessionName, chatName, authorInfo, text);
+                }, error -> {
+                    log.error("[{}] Error in message subscription: {}", sessionName, error.getMessage());
+                });
+        log.info("Session '{}' subscribed to incoming messages", sessionName);
+    }
+
+    /**
+     * Send a text message to a chat/user.
+     *
+     * @param sessionName the session to send from
+     * @param chatId      the target chat/user ID (numeric ID or @username)
+     * @param text        the message text
+     * @return the sent message info
+     */
+    public Map<String, Object> sendMessage(String sessionName, String chatId, String text) {
+        ClientHolder holder = clients.get(sessionName);
+        if (holder == null) {
+            throw new IllegalStateException("Session '" + sessionName + "' is not connected");
+        }
+
+        MTProtoTelegramClient client = holder.client;
+
+        try {
+            // Resolve peer: try as numeric ID first, then as username
+            PeerId peerId;
+            try {
+                long numericId = Long.parseLong(chatId);
+                peerId = PeerId.of(Id.ofUser(numericId));
+            } catch (NumberFormatException e) {
+                // Treat as username (with or without @)
+                String username = chatId.startsWith("@") ? chatId.substring(1) : chatId;
+                peerId = PeerId.of(username);
+            }
+
+            Chat chat = client.getChatById(peerId.asId().orElseThrow(
+                    () -> new RuntimeException("Cannot resolve peer: " + chatId)))
+                    .switchIfEmpty(Mono.error(new RuntimeException("Chat not found: " + chatId)))
+                    .block(Duration.ofSeconds(10));
+
+            if (chat == null) {
+                throw new RuntimeException("Chat not found: " + chatId);
+            }
+
+            Message sent = chat.sendMessage(SendMessageSpec.of(text))
+                    .block(Duration.ofSeconds(10));
+
+            Map<String, Object> result = new java.util.LinkedHashMap<>();
+            result.put("messageId", sent != null ? sent.getId() : -1);
+            result.put("chatId", chatId);
+            result.put("text", text);
+            result.put("timestamp", java.time.Instant.now().toString());
+            return result;
+
+        } catch (Exception e) {
+            log.error("Failed to send message from session '{}' to '{}': {}",
+                    sessionName, chatId, e.getMessage(), e);
+            throw new RuntimeException("Send message failed: " + e.getMessage(), e);
         }
     }
 

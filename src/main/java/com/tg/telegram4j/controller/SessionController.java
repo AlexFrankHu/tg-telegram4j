@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -90,6 +91,41 @@ public class SessionController {
             return ApiResponse.error("Session not found: " + sessionName);
         }
         return ApiResponse.ok(info);
+    }
+
+    /**
+     * Send a text message.
+     *
+     * <pre>
+     * curl -X POST http://localhost:8080/api/session/my_account/send \
+     *   -H "Content-Type: application/json" \
+     *   -d '{"chatId":"123456789","text":"Hello!"}'
+     *
+     * # Or send by username:
+     * curl -X POST http://localhost:8080/api/session/my_account/send \
+     *   -H "Content-Type: application/json" \
+     *   -d '{"chatId":"@username","text":"Hello!"}'
+     * </pre>
+     */
+    @PostMapping("/{sessionName}/send")
+    public ApiResponse<Map<String, Object>> sendMessage(
+            @PathVariable String sessionName,
+            @RequestBody Map<String, String> body) {
+        try {
+            String chatId = body.get("chatId");
+            String text = body.get("text");
+            if (chatId == null || chatId.isBlank()) {
+                return ApiResponse.error("chatId is required");
+            }
+            if (text == null || text.isBlank()) {
+                return ApiResponse.error("text is required");
+            }
+            Map<String, Object> result = clientService.sendMessage(sessionName, chatId, text);
+            return ApiResponse.ok("Message sent", result);
+        } catch (Exception e) {
+            log.error("Send message failed", e);
+            return ApiResponse.error(e.getMessage());
+        }
     }
 
     /**
