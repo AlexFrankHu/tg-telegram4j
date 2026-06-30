@@ -13,6 +13,9 @@ import telegram4j.core.auth.AuthorizationHandler;
 import telegram4j.core.retriever.EntityRetrievalStrategy;
 import telegram4j.core.retriever.PreferredEntityRetriever;
 import telegram4j.core.util.Id;
+import telegram4j.mtproto.resource.ProxyResources;
+import telegram4j.mtproto.resource.SocksProxyResources;
+import telegram4j.mtproto.resource.TcpClientResources;
 import telegram4j.mtproto.store.StoreLayoutImpl;
 import telegram4j.tl.BaseUser;
 import telegram4j.tl.InputUserSelf;
@@ -21,6 +24,7 @@ import telegram4j.tl.auth.BaseAuthorization;
 import telegram4j.tl.request.users.ImmutableGetUsers;
 
 import java.io.File;
+import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -138,12 +142,32 @@ public class TelegramClientService {
                         "Please generate a new .session file with Telethon."));
 
         try {
-            MTProtoTelegramClient client = MTProtoTelegramClient.create(apiId, apiHash, fallbackHandler)
+            var bootstrap = MTProtoTelegramClient.create(apiId, apiHash, fallbackHandler)
                     .setStoreLayout(storeLayout)
                     .setEntityRetrieverStrategy(EntityRetrievalStrategy.preferred(
                             EntityRetrievalStrategy.STORE_FALLBACK_RPC,
                             PreferredEntityRetriever.Setting.FULL,
-                            PreferredEntityRetriever.Setting.FULL))
+                            PreferredEntityRetriever.Setting.FULL));
+
+            // Configure SOCKS5 proxy if enabled
+            TelegramProperties.Proxy proxyConfig = properties.getProxy();
+            if (proxyConfig.isEnabled()) {
+                log.info("Using SOCKS5 proxy: {}:{}", proxyConfig.getHost(), proxyConfig.getPort());
+                SocksProxyResources.ProxySpec proxySpec = ProxyResources.ofSocks5()
+                        .address(new InetSocketAddress(proxyConfig.getHost(), proxyConfig.getPort()));
+                if (proxyConfig.getUsername() != null && !proxyConfig.getUsername().isBlank()) {
+                    proxySpec.username(proxyConfig.getUsername());
+                }
+                if (proxyConfig.getPassword() != null && !proxyConfig.getPassword().isBlank()) {
+                    proxySpec.password(proxyConfig.getPassword());
+                }
+                TcpClientResources tcpResources = TcpClientResources.builder()
+                        .proxyResources(proxySpec.build())
+                        .build();
+                bootstrap.setTcpClientResources(tcpResources);
+            }
+
+            MTProtoTelegramClient client = bootstrap
                     .connect()
                     .block(Duration.ofSeconds(30));
 

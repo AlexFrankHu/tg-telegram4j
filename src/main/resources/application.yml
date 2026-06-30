@@ -8,6 +8,13 @@ telegram:
   # Get yours from https://my.telegram.org/apps
   api-id: 0
   api-hash: ""
+  # SOCKS5 proxy (for environments that cannot access Telegram directly)
+  proxy:
+    enabled: false
+    host: 127.0.0.1
+    port: 1080
+    username:
+    password:
 
 spring:
   servlet:
