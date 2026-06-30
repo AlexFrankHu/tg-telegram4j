@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -25,6 +26,7 @@ public class TgTelethonAccount {
     private Integer apiId;
 
     /** Telegram API Hash */
+    @JsonIgnore
     private String apiHash;
 
     /** Telegram用户ID */
@@ -88,6 +90,7 @@ public class TgTelethonAccount {
     private String proxyUsername;
 
     /** 代理认证密码 */
+    @JsonIgnore
     private String proxyPassword;
 
     /** 是否开启自动回复 */
@@ -109,9 +112,11 @@ public class TgTelethonAccount {
     private String nodeId;
 
     /** 账号JSON文件内容 */
+    @JsonIgnore
     private String jsonContent;
 
     /** 账号session文件内容(二进制) */
+    @JsonIgnore
     private byte[] sessionContent;
 
     /** 创建时间 */

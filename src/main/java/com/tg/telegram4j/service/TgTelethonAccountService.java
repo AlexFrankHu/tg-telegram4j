@@ -112,17 +112,14 @@ public class TgTelethonAccountService {
      * 更新消息计数。
      */
     public void incrementMsgCount(Integer id, boolean isSent) {
-        TgTelethonAccount account = accountMapper.selectById(id);
-        if (account == null) return;
-
         LambdaUpdateWrapper<TgTelethonAccount> wrapper = new LambdaUpdateWrapper<>();
         wrapper.eq(TgTelethonAccount::getId, id)
-               .set(TgTelethonAccount::getTotalMsgCount, account.getTotalMsgCount() + 1)
+               .setSql("total_msg_count = COALESCE(total_msg_count, 0) + 1")
                .set(TgTelethonAccount::getUpdateTime, LocalDateTime.now());
         if (isSent) {
-            wrapper.set(TgTelethonAccount::getSentMsgCount, account.getSentMsgCount() + 1);
+            wrapper.setSql("sent_msg_count = COALESCE(sent_msg_count, 0) + 1");
         } else {
-            wrapper.set(TgTelethonAccount::getRecvMsgCount, account.getRecvMsgCount() + 1);
+            wrapper.setSql("recv_msg_count = COALESCE(recv_msg_count, 0) + 1");
         }
         accountMapper.update(null, wrapper);
     }
