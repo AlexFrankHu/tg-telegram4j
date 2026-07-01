@@ -8,6 +8,7 @@ import com.tg.telegram4j.model.DeviceInfo;
 import com.tg.telegram4j.model.ProxyInfo;
 import com.tg.telegram4j.model.SessionInfo;
 import com.tg.telegram4j.model.TelegramMessage;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,6 +31,18 @@ public class TelegramAccountManager implements TelegramEventListener {
 
     public TelegramAccountManager(TgTelethonAccountService accountService) {
         this.accountService = accountService;
+    }
+
+    /**
+     * 初始化方法，打印当前运行目录等环境信息。
+     */
+    @PostConstruct
+    public void init() {
+        String workDir = System.getProperty("user.dir");
+        log.info("========== TelegramAccountManager 初始化 ==========");
+        log.info("当前运行目录: {}", workDir);
+        log.info("数据存储目录: {}", dataDir);
+        log.info("===================================================");
     }
 
     /**
