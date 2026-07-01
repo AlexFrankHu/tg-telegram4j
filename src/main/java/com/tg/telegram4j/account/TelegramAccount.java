@@ -437,7 +437,8 @@ public class TelegramAccount {
                 // 返回的用户信息
                 List<Map<String, Object>> users = new ArrayList<>();
                 result.users().forEach(user -> {
-                    if (user instanceof BaseUser baseUser) {
+                    if (user instanceof BaseUser ) {
+                        BaseUser baseUser = (BaseUser) user;
                         Map<String, Object> userInfo = new LinkedHashMap<>();
                         userInfo.put("userId", baseUser.id());
                         userInfo.put("firstName", baseUser.firstName());
