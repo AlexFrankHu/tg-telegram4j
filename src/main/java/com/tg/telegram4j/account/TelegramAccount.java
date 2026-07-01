@@ -35,12 +35,11 @@ import telegram4j.tl.InputPeer;
 import telegram4j.tl.InputUserSelf;
 import telegram4j.tl.User;
 
-import telegram4j.tl.ImmutableInputPhoneContact;
-import telegram4j.tl.ImmutableInputUser;
-import telegram4j.tl.InputPhoneContact;
+import telegram4j.tl.ImmutableBaseInputUser;
+import telegram4j.tl.ImmutableInputContact;
+import telegram4j.tl.InputContact;
 import telegram4j.tl.contacts.ImportedContacts;
 import telegram4j.tl.request.contacts.ImmutableAddContact;
-import telegram4j.tl.request.contacts.ImmutableImportContacts;
 
 import java.io.File;
 import java.net.InetSocketAddress;
@@ -348,15 +347,15 @@ public class TelegramAccount {
             }
 
             // 构造 contacts.addContact 请求
-            var request = ImmutableAddContact.of(
-                    ImmutableInputUser.of(userId, accessHash),
-                    firstName != null ? firstName : "",
-                    lastName != null ? lastName : "",
-                    phone != null ? phone : ""
-            );
+            var request = ImmutableAddContact.builder()
+                    .id(ImmutableBaseInputUser.of(userId, accessHash))
+                    .firstName(firstName != null ? firstName : "")
+                    .lastName(lastName != null ? lastName : "")
+                    .phone(phone != null ? phone : "")
+                    .build();
 
-            // 发送请求
-            client.getMtProtoClientGroup().send(DcId.main(), request)
+            // 通过 UserService 发送请求
+            client.getServiceHolder().getUserService().addContact(request)
                     .block(Duration.ofSeconds(15));
 
             Map<String, Object> result = new LinkedHashMap<>();
@@ -388,8 +387,8 @@ public class TelegramAccount {
                 throw new IllegalArgumentException("联系人列表不能为空");
             }
 
-            // 构造 InputPhoneContact 列表
-            List<InputPhoneContact> inputContacts = new ArrayList<>();
+            // 构造 InputContact 列表
+            List<InputContact> inputContacts = new ArrayList<>();
             for (int i = 0; i < contacts.size(); i++) {
                 Map<String, String> contact = contacts.get(i);
                 String contactPhone = contact.getOrDefault("phone", "");
@@ -400,7 +399,7 @@ public class TelegramAccount {
                     continue;
                 }
 
-                inputContacts.add(ImmutableInputPhoneContact.of(
+                inputContacts.add(ImmutableInputContact.of(
                         (long) i,  // client_id，用于关联导入结果
                         contactPhone,
                         contactFirstName,
@@ -412,12 +411,9 @@ public class TelegramAccount {
                 throw new IllegalArgumentException("没有有效的联系人（需要包含手机号）");
             }
 
-            // 构造 contacts.importContacts 请求
-            var request = ImmutableImportContacts.of(inputContacts);
-
-            // 发送请求
-            ImportedContacts result = client.getMtProtoClientGroup()
-                    .send(DcId.main(), request)
+            // 通过 UserService 发送请求
+            ImportedContacts result = client.getServiceHolder().getUserService()
+                    .importContacts(inputContacts)
                     .block(Duration.ofSeconds(30));
 
             // 构建返回结果
