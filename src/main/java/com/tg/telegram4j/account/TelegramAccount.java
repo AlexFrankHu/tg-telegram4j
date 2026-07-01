@@ -511,10 +511,15 @@ public class TelegramAccount {
 
                     // 发送者详细信息
                     String senderUsername = event.getAuthor()
-                            .map(author -> author.getUsername().orElse(""))
+                            .flatMap(MentionablePeer::getUsername)
                             .orElse("");
                     String senderName = event.getAuthor()
-                            .map(MentionablePeer::getName)
+                            .map(author -> {
+                                if (author instanceof telegram4j.core.object.User u) {
+                                    return u.getFullName();
+                                }
+                                return senderUsername;
+                            })
                             .orElse("");
 
                     // 判断是否是自己发送的
