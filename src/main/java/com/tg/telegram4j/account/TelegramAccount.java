@@ -516,8 +516,9 @@ public class TelegramAccount {
                             .orElse("");
                     String senderName = event.getAuthor()
                             .map(author -> {
-                                if (author instanceof telegram4j.core.object.User u) {
-                                    return u.getFullName();
+                                if (author instanceof telegram4j.core.object.User) {
+                                    telegram4j.core.object.User user = (telegram4j.core.object.User) author;
+                                    return user.getFullName();
                                 }
                                 return senderUsername;
                             })
