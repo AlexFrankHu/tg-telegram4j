@@ -40,6 +40,7 @@ import telegram4j.tl.ImmutableInputContact;
 import telegram4j.tl.InputContact;
 import telegram4j.tl.contacts.ImportedContacts;
 import telegram4j.tl.request.contacts.ImmutableAddContact;
+import telegram4j.tl.request.contacts.ImmutableImportContacts;
 
 import java.io.File;
 import java.net.InetSocketAddress;
