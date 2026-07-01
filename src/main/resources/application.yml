@@ -29,6 +29,4 @@ logging:
   level:
     com.tg.telegram4j: DEBUG
     telegram4j: INFO
-  file:
-    name: ./logs/tg-telegram4j.log
-    path: ./logs
+  config: classpath:logback-spring.xml
