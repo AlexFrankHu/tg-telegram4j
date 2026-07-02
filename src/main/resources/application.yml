@@ -30,5 +30,8 @@ telegram:
 logging:
   level:
     com.tg.telegram4j: DEBUG
+    com.tg.telegram4j.mapper: INFO
     telegram4j: INFO
+    org.apache.ibatis: INFO
+    com.baomidou.mybatisplus: INFO
   config: classpath:logback-spring.xml
