@@ -24,6 +24,9 @@ import java.net.*;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -37,6 +40,7 @@ public class TelegramAccountManager implements TelegramEventListener {
     private final TgTelethonAccountService accountService;
     private final Environment environment;
     private final Map<String, TelegramAccount> accounts = new ConcurrentHashMap<>();
+    private ScheduledExecutorService heartbeatScheduler;
 
     public TelegramAccountManager(TgTelethonAccountService accountService, Environment environment) {
         this.accountService = accountService;
@@ -66,6 +70,37 @@ public class TelegramAccountManager implements TelegramEventListener {
 
         log.info("===================================================");
         initNodeInfo();
+        startHeartbeat();
+    }
+
+    /**
+     * 启动心跳定时器，每10秒执行一次。
+     */
+    private void startHeartbeat() {
+        heartbeatScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "heartbeat-timer");
+            t.setDaemon(true);
+            return t;
+        });
+        heartbeatScheduler.scheduleAtFixedRate(this::heartbeat, 10, 10, TimeUnit.SECONDS);
+        log.info("心跳定时器已启动，间隔: 10秒");
+    }
+
+    /**
+     * 心跳任务：汇报当前在线账号数等状态信息。
+     */
+    private void heartbeat() {
+        try {
+            int onlineCount = accounts.size();
+            log.debug("[心跳] 当前在线账号数: {}, 节点ID: {}", onlineCount, NODE_ID);
+
+            // TODO: 在此处扩展心跳逻辑，如：
+            // - 上报节点状态到数据库(tg_cluster_node)
+            // - 检测账号连接是否存活
+            // - 更新节点最后活跃时间
+        } catch (Exception e) {
+            log.warn("[心跳] 执行异常: {}", e.getMessage());
+        }
     }
 
     /**
@@ -297,6 +332,11 @@ public class TelegramAccountManager implements TelegramEventListener {
     @PreDestroy
     public void disconnectAll() {
         log.info("Disconnecting all accounts ({})...", accounts.size());
+        // 停止心跳定时器
+        if (heartbeatScheduler != null && !heartbeatScheduler.isShutdown()) {
+            heartbeatScheduler.shutdown();
+            log.info("心跳定时器已停止");
+        }
         for (String name : new ArrayList<>(accounts.keySet())) {
             disconnect(name);
         }
