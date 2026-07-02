@@ -87,20 +87,16 @@ public class TelegramAccountManager implements TelegramEventListener {
     }
 
     /**
-     * 获取内网IP地址。
+     * 获取内网IP地址（eth0网卡）。
      */
     private String getPrivateIp() {
         try {
-            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-            while (interfaces.hasMoreElements()) {
-                NetworkInterface ni = interfaces.nextElement();
-                if (ni.isLoopback() || !ni.isUp()) {
-                    continue;
-                }
-                Enumeration<InetAddress> addresses = ni.getInetAddresses();
+            NetworkInterface eth0 = NetworkInterface.getByName("eth0");
+            if (eth0 != null && eth0.isUp()) {
+                Enumeration<InetAddress> addresses = eth0.getInetAddresses();
                 while (addresses.hasMoreElements()) {
                     InetAddress addr = addresses.nextElement();
-                    if (addr instanceof Inet4Address && addr.isSiteLocalAddress()) {
+                    if (addr instanceof Inet4Address) {
                         return addr.getHostAddress();
                     }
                 }
