@@ -22,6 +22,11 @@ mybatis-plus:
       logic-delete-value: 1
       logic-not-delete-value: 0
 
+telegram:
+  notify:
+    bot-token: 
+    chat-id: 
+
 logging:
   level:
     com.tg.telegram4j: DEBUG
