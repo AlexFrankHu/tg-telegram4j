@@ -33,8 +33,9 @@ public class AccountController {
     @PostMapping("/login")
     public ApiResponse<SessionInfo> login(@RequestBody AccountLoginRequest request) {
         try {
-            SessionInfo info = accountManager.login(request);
-            return ApiResponse.ok("Login successful", info);
+//            SessionInfo info = accountManager.login(request);
+//            return ApiResponse.ok("Login successful", info);
+            return null;
         } catch (Exception e) {
             log.error("Login failed for '{}'", request.getSessionName(), e);
             return ApiResponse.error(e.getMessage());
@@ -76,8 +77,9 @@ public class AccountController {
                         .build());
             }
 
-            SessionInfo info = accountManager.login(request);
-            return ApiResponse.ok("Login successful", info);
+//            SessionInfo info = accountManager.login(request);
+//            return ApiResponse.ok("Login successful", info);
+            return null;
         } catch (Exception e) {
             log.error("Upload login failed for '{}'", sessionName, e);
             return ApiResponse.error(e.getMessage());
@@ -99,8 +101,9 @@ public class AccountController {
             if (dbAccount == null) {
                 return ApiResponse.error("Account not found in database: id=" + accountId);
             }
-            SessionInfo info = accountManager.loginFromDb(dbAccount);
-            return ApiResponse.ok("Login successful", info);
+//            SessionInfo info = accountManager.loginFromDb(dbAccount);
+//            return ApiResponse.ok("Login successful", info);
+            return null;
         } catch (Exception e) {
             log.error("DB login failed for account id={}", accountId, e);
             return ApiResponse.error(e.getMessage());
@@ -121,8 +124,9 @@ public class AccountController {
             if (dbAccount == null) {
                 return ApiResponse.error("Account not found in database: phone=" + phone);
             }
-            SessionInfo info = accountManager.loginFromDb(dbAccount);
-            return ApiResponse.ok("Login successful", info);
+//            SessionInfo info = accountManager.loginFromDb(dbAccount);
+//            return ApiResponse.ok("Login successful", info);
+            return null;
         } catch (Exception e) {
             log.error("DB login failed for phone={}", phone, e);
             return ApiResponse.error(e.getMessage());
@@ -158,10 +162,10 @@ public class AccountController {
                         result.put("success", false);
                         result.put("error", "No session_content");
                     } else {
-                        SessionInfo info = accountManager.loginFromDb(dbAccount);
-                        result.put("success", true);
-                        result.put("userId", info.getUserId());
-                        result.put("username", info.getUsername());
+//                        SessionInfo info = accountManager.loginFromDb(dbAccount);
+//                        result.put("success", true);
+//                        result.put("userId", info.getUserId());
+//                        result.put("username", info.getUsername());
                     }
                 } catch (Exception e) {
                     result.put("success", false);

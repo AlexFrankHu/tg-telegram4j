@@ -26,7 +26,7 @@ public class TgTelethonAccount {
     private Integer apiId;
 
     /** Telegram API Hash */
-    @JsonIgnore
+//    @JsonIgnore
     private String apiHash;
 
     /** Telegram用户ID */
@@ -90,7 +90,7 @@ public class TgTelethonAccount {
     private String proxyUsername;
 
     /** 代理认证密码 */
-    @JsonIgnore
+//    @JsonIgnore
     private String proxyPassword;
 
     /** 是否开启自动回复 */
@@ -112,7 +112,7 @@ public class TgTelethonAccount {
     private String nodeId;
 
     /** 账号JSON文件内容 */
-    @JsonIgnore
+//    @JsonIgnore
     private String jsonContent;
 
     /** 账号session文件内容(二进制) */
