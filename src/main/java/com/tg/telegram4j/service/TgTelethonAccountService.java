@@ -76,6 +76,19 @@ public class TgTelethonAccountService {
     }
 
     /**
+     * 按节点ID查询待登录账号列表（status为login1或login2）。
+     */
+    public List<TgTelethonAccount> listLoginPendingByNodeId(String nodeId) {
+        LambdaQueryWrapper<TgTelethonAccount> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(TgTelethonAccount::getNodeId, nodeId)
+               .eq(TgTelethonAccount::getIsDeleted, 0)
+               .and(w -> w.eq(TgTelethonAccount::getStatus, "login1")
+                          .or()
+                          .eq(TgTelethonAccount::getStatus, "login2"));
+        return accountMapper.selectList(wrapper);
+    }
+
+    /**
      * 按批次号查询账号列表。
      */
     public List<TgTelethonAccount> listByBatchNo(String batchNo) {
