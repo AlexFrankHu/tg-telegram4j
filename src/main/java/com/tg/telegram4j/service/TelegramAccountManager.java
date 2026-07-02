@@ -1,7 +1,5 @@
 package com.tg.telegram4j.service;
 
-import com.alibaba.fastjson.JSONObject;
-import com.alibaba.fastjson.JSONPObject;
 import com.tg.telegram4j.account.TelegramAccount;
 import com.tg.telegram4j.account.TelegramEventListener;
 import com.tg.telegram4j.entity.TgClusterNode;
@@ -11,7 +9,6 @@ import com.tg.telegram4j.model.DeviceInfo;
 import com.tg.telegram4j.model.ProxyInfo;
 import com.tg.telegram4j.model.SessionInfo;
 import com.tg.telegram4j.model.TelegramMessage;
-import com.tg.telegram4j.utils.JsonUtil;
 import com.tg.telegram4j.utils.MD5;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -145,17 +142,7 @@ public class TelegramAccountManager implements TelegramEventListener {
 
     @Scheduled(initialDelay = 20*1000, fixedDelay = 15*1000)
     public void loginTask() {
-        try {
-            List<TgTelethonAccount> tgTelethonAccountList = tgTelethonAccountService.listLoginPendingByNodeId(NODE_ID);
-            if (tgTelethonAccountList == null || tgTelethonAccountList.size() <= 0) {
-                return;
-            }
 
-
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 
     /**
@@ -230,47 +217,44 @@ public class TelegramAccountManager implements TelegramEventListener {
 
 
 
-//    /**
-//     * 登录账号（通过请求参数）。
-//     */
-//    public SessionInfo login(AccountLoginRequest request) {
-//        String name = request.getSessionName();
-//        if (accounts.containsKey(name)) {
-//            throw new IllegalStateException("Account '" + name + "' is already connected");
-//        }
-//
-//        TelegramAccount account = new TelegramAccount(
-//                name,
-//                DATA_DIR,
-//                request.getProxy(),
-//                request.getDevice(),
-//                request.isAutoReadMessages(),
-//                request.getApiId(),
-//                request.getApiHash(),
-//                this
-//        );
-//
-//        SessionInfo info = account.login(request.getSessionData());
-//        accounts.put(name, account);
-//        log.info("Account '{}' logged in, total active: {}", name, accounts.size());
-//        return info;
-//    }
+    /**
+     * 登录账号（通过请求参数）。
+     */
+    public SessionInfo login(AccountLoginRequest request) {
+        String name = request.getSessionName();
+        if (accounts.containsKey(name)) {
+            throw new IllegalStateException("Account '" + name + "' is already connected");
+        }
+
+        TelegramAccount account = new TelegramAccount(
+                name,
+                DATA_DIR,
+                request.getProxy(),
+                request.getDevice(),
+                request.isAutoReadMessages(),
+                request.getApiId(),
+                request.getApiHash(),
+                this
+        );
+
+        SessionInfo info = account.login(request.getSessionData());
+        accounts.put(name, account);
+        log.info("Account '{}' logged in, total active: {}", name, accounts.size());
+        return info;
+    }
 
     /**
      * 从数据库加载账号并登录。
      * 根据数据库记录的 session_content、代理信息、设备信息自动创建 TelegramAccount 并登录。
-     * 返回值：
-     * 2：账号已经登录成功
-     * -1 ： session 为空
      */
-    public int loginFromDb(TgTelethonAccount dbAccount) {
+    public SessionInfo loginFromDb(TgTelethonAccount dbAccount) {
         String name = dbAccount.getPhone();
         if (accounts.containsKey(name)) {
-            return 2;
+            throw new IllegalStateException("Account '" + name + "' is already connected");
         }
 
         if (dbAccount.getSessionContent() == null || dbAccount.getSessionContent().length == 0) {
-            return -1;
+            throw new IllegalArgumentException("Account '" + name + "' has no session_content in database");
         }
 
         // 从数据库记录构建代理信息
@@ -287,22 +271,6 @@ public class TelegramAccountManager implements TelegramEventListener {
 
         // 从数据库记录构建设备信息
         DeviceInfo deviceInfo = null;
-
-        String deviceMode = "";
-        String systemVersion = "";
-        String appVersion = "";
-        String langCode = "";
-        String systemLangCode = "";
-
-        if (dbAccount.getJsonContent() != null && dbAccount.getJsonContent().length() > 0) {
-            try {
-                JSONObject jsonpObject = JSONObject.parseObject(dbAccount.getJsonContent());
-                deviceMode = JsonUtil.getString(jsonpObject, "");
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-
         if (dbAccount.getDeviceModel() != null || dbAccount.getSystemVersion() != null
                 || dbAccount.getAppVersion() != null) {
             deviceInfo = DeviceInfo.builder()
@@ -312,16 +280,11 @@ public class TelegramAccountManager implements TelegramEventListener {
                     .langCode(dbAccount.getLangCode())
                     .systemLangCode(dbAccount.getSystemLangCode())
                     .build();
-        } else {
-            if (dbAccount.getDeviceModel() != null || dbAccount.getSystemVersion() != null
-                    || dbAccount.getAppVersion() != null) {
-
-            }
         }
 
         TelegramAccount account = new TelegramAccount(
                 name,
-                DATA_DIR + File.separator + name,
+                DATA_DIR,
                 proxyInfo,
                 deviceInfo,
                 false,
@@ -354,7 +317,7 @@ public class TelegramAccountManager implements TelegramEventListener {
         }
 
         log.info("Account '{}' logged in from DB, total active: {}", name, accounts.size());
-        return 1;
+        return info;
     }
 
     /**
