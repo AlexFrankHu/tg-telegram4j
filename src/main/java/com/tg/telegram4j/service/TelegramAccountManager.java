@@ -13,14 +13,14 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
+import java.io.*;
+import java.net.*;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -35,10 +35,12 @@ public class TelegramAccountManager implements TelegramEventListener {
     private String DATA_DIR = "";
 
     private final TgTelethonAccountService accountService;
+    private final Environment environment;
     private final Map<String, TelegramAccount> accounts = new ConcurrentHashMap<>();
 
-    public TelegramAccountManager(TgTelethonAccountService accountService) {
+    public TelegramAccountManager(TgTelethonAccountService accountService, Environment environment) {
         this.accountService = accountService;
+        this.environment = environment;
     }
 
     /**
@@ -55,8 +57,58 @@ public class TelegramAccountManager implements TelegramEventListener {
         log.info("程序基础目录: {}", BASE_DIR);
         DATA_DIR = BASE_DIR + File.separator + "data";
         log.info("数据基础目录: {}", DATA_DIR);
+
+        // 打印IP地址和端口
+        String serverPort = environment.getProperty("server.port", "8080");
+        log.info("服务端口: {}", serverPort);
+        log.info("公网IP: {}", getPublicIp());
+        log.info("内网IP: {}", getPrivateIp());
+
         log.info("===================================================");
         initNodeInfo();
+    }
+
+    /**
+     * 获取公网IP地址。
+     */
+    private String getPublicIp() {
+        try {
+            URL url = new URL("https://api.ipify.org");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setConnectTimeout(3000);
+            conn.setReadTimeout(3000);
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
+                return reader.readLine();
+            }
+        } catch (Exception e) {
+            log.warn("获取公网IP失败: {}", e.getMessage());
+            return "unknown";
+        }
+    }
+
+    /**
+     * 获取内网IP地址。
+     */
+    private String getPrivateIp() {
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface ni = interfaces.nextElement();
+                if (ni.isLoopback() || !ni.isUp()) {
+                    continue;
+                }
+                Enumeration<InetAddress> addresses = ni.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    InetAddress addr = addresses.nextElement();
+                    if (addr instanceof Inet4Address && addr.isSiteLocalAddress()) {
+                        return addr.getHostAddress();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("获取内网IP失败: {}", e.getMessage());
+        }
+        return "unknown";
     }
 
     private void initNodeInfo() {
