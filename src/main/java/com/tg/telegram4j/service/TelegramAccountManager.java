@@ -2,6 +2,7 @@ package com.tg.telegram4j.service;
 
 import com.tg.telegram4j.account.TelegramAccount;
 import com.tg.telegram4j.account.TelegramEventListener;
+import com.tg.telegram4j.entity.TgClusterNode;
 import com.tg.telegram4j.entity.TgTelethonAccount;
 import com.tg.telegram4j.model.AccountLoginRequest;
 import com.tg.telegram4j.model.DeviceInfo;
@@ -12,25 +13,25 @@ import com.tg.telegram4j.utils.MD5;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.Resource;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
 import java.net.*;
-import java.nio.file.Path;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+
 
 @Slf4j
 @Service
 public class TelegramAccountManager implements TelegramEventListener {
+
+    @Autowired
+    private TgClusterNodeService tgClusterNodeService;
+
 
     private String NODE_ID = "";
 
@@ -40,7 +41,12 @@ public class TelegramAccountManager implements TelegramEventListener {
     private final TgTelethonAccountService accountService;
     private final Environment environment;
     private final Map<String, TelegramAccount> accounts = new ConcurrentHashMap<>();
-    private ScheduledExecutorService heartbeatScheduler;
+
+    private String PUBLIC_IP = "";
+    private String PRIVATE_IP = "";
+    private String PORT = "";
+    private boolean INIT_SUCCESS = false;
+
 
     public TelegramAccountManager(TgTelethonAccountService accountService, Environment environment) {
         this.accountService = accountService;
@@ -63,44 +69,27 @@ public class TelegramAccountManager implements TelegramEventListener {
         log.info("数据基础目录: {}", DATA_DIR);
 
         // 打印IP地址和端口
-        String serverPort = environment.getProperty("server.port", "8080");
-        log.info("服务端口: {}", serverPort);
-        log.info("公网IP: {}", getPublicIp());
-        log.info("内网IP: {}", getPrivateIp());
+        PORT = environment.getProperty("server.port", "8080");
+        PUBLIC_IP = getPublicIp();
+        PRIVATE_IP = getPrivateIp();
+        log.info("服务端口: {}", PORT);
+        log.info("公网IP: {}", PUBLIC_IP);
+        log.info("内网IP: {}", PRIVATE_IP);
 
         log.info("===================================================");
         initNodeInfo();
-        startHeartbeat();
+
+        INIT_SUCCESS = true;
     }
 
-    /**
-     * 启动心跳定时器，每10秒执行一次。
-     */
-    private void startHeartbeat() {
-        heartbeatScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "heartbeat-timer");
-            t.setDaemon(true);
-            return t;
-        });
-        heartbeatScheduler.scheduleAtFixedRate(this::heartbeat, 10, 10, TimeUnit.SECONDS);
-        log.info("心跳定时器已启动，间隔: 10秒");
-    }
-
-    /**
-     * 心跳任务：汇报当前在线账号数等状态信息。
-     */
-    private void heartbeat() {
-        try {
-            int onlineCount = accounts.size();
-            log.debug("[心跳] 当前在线账号数: {}, 节点ID: {}", onlineCount, NODE_ID);
-
-            // TODO: 在此处扩展心跳逻辑，如：
-            // - 上报节点状态到数据库(tg_cluster_node)
-            // - 检测账号连接是否存活
-            // - 更新节点最后活跃时间
-        } catch (Exception e) {
-            log.warn("[心跳] 执行异常: {}", e.getMessage());
+    @Scheduled(initialDelay = 20*1000, fixedDelay = 10*1000)
+    public void updateMerchantInfo() throws InterruptedException {
+        if (!INIT_SUCCESS) {
+            return ;
         }
+
+//        if (NODE_ID)
+//        TgClusterNode tgClusterNode = tgClusterNodeService.getByNodeId(NODE_ID);
     }
 
     /**
@@ -172,6 +161,8 @@ public class TelegramAccountManager implements TelegramEventListener {
         log.info("节点ID: {}", NODE_ID);
         log.info("===================================================");
     }
+
+
 
     /**
      * 登录账号（通过请求参数）。
@@ -332,11 +323,6 @@ public class TelegramAccountManager implements TelegramEventListener {
     @PreDestroy
     public void disconnectAll() {
         log.info("Disconnecting all accounts ({})...", accounts.size());
-        // 停止心跳定时器
-        if (heartbeatScheduler != null && !heartbeatScheduler.isShutdown()) {
-            heartbeatScheduler.shutdown();
-            log.info("心跳定时器已停止");
-        }
         for (String name : new ArrayList<>(accounts.keySet())) {
             disconnect(name);
         }
