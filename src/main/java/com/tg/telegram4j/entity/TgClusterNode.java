@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 
 /**
  * 集群节点信息表实体类。
@@ -39,16 +40,15 @@ public class TgClusterNode {
     private String nodeStatus;
 
     /** 最后活跃时间 */
-    private LocalDateTime lastActiveTime;
+    private Date lastActiveTime;
 
     /** 最大账号数 */
     private Integer maxAccountCount;
 
     /** 创建时间 */
-    private LocalDateTime createTime;
+    private Date createTime;
 
-    /** 更新时间 */
-    private LocalDateTime updateTime;
+    private Date updateTime;
 
     /** 节点类型 */
     private String nodeType;

@@ -23,6 +23,12 @@ public class TgTelethonAccountService {
         this.accountMapper = accountMapper;
     }
 
+    public Long getAccountCount(String nodeId) {
+        LambdaQueryWrapper<TgTelethonAccount> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(TgTelethonAccount::getNodeId, nodeId);
+        return accountMapper.selectCount(wrapper);
+    }
+
     /**
      * 根据ID查询账号。
      */

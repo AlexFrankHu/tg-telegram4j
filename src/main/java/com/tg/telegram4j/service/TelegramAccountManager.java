@@ -30,7 +30,13 @@ import java.util.concurrent.ConcurrentHashMap;
 public class TelegramAccountManager implements TelegramEventListener {
 
     @Autowired
+    private TgTelethonAccountService tgTelethonAccountService;
+
+    @Autowired
     private TgClusterNodeService tgClusterNodeService;
+
+    @Autowired
+    private TelegramNotifyService notifyService;
 
 
     private String NODE_ID = "";
@@ -44,8 +50,10 @@ public class TelegramAccountManager implements TelegramEventListener {
 
     private String PUBLIC_IP = "";
     private String PRIVATE_IP = "";
-    private String PORT = "";
+    private Integer PORT = 0;
     private boolean INIT_SUCCESS = false;
+
+    private String NODE_BASE_INFO = "";
 
 
     public TelegramAccountManager(TgTelethonAccountService accountService, Environment environment) {
@@ -69,7 +77,7 @@ public class TelegramAccountManager implements TelegramEventListener {
         log.info("数据基础目录: {}", DATA_DIR);
 
         // 打印IP地址和端口
-        PORT = environment.getProperty("server.port", "8080");
+        PORT = Integer.parseInt(environment.getProperty("server.port", "8080"));
         PUBLIC_IP = getPublicIp();
         PRIVATE_IP = getPrivateIp();
         log.info("服务端口: {}", PORT);
@@ -79,17 +87,57 @@ public class TelegramAccountManager implements TelegramEventListener {
         log.info("===================================================");
         initNodeInfo();
 
+        StringBuilder nodeInfoStringBuilder = new StringBuilder();
+        nodeInfoStringBuilder.append("------------------------------").append("\n");
+        nodeInfoStringBuilder.append("节点：").append(NODE_ID).append("\n");
+        nodeInfoStringBuilder.append("内网：").append(PRIVATE_IP).append("\n");
+        nodeInfoStringBuilder.append("端口：").append(PORT).append("\n");
+        nodeInfoStringBuilder.append("------------------------------").append("\n");
+        NODE_BASE_INFO = nodeInfoStringBuilder.toString();
         INIT_SUCCESS = true;
     }
 
     @Scheduled(initialDelay = 20*1000, fixedDelay = 10*1000)
-    public void updateMerchantInfo() throws InterruptedException {
+    public void heartbeat() throws InterruptedException {
+
+        log.info("=============>heartbeat");
+
         if (!INIT_SUCCESS) {
             return ;
         }
 
-//        if (NODE_ID)
-//        TgClusterNode tgClusterNode = tgClusterNodeService.getByNodeId(NODE_ID);
+        if (NODE_ID == null || NODE_ID.trim().length() <= 0) {
+            notifyService.sendNotify("节点错误", NODE_BASE_INFO + "节点ID错误");
+            return ;
+        }
+
+        Long nodeAccountCount = tgTelethonAccountService.getAccountCount(NODE_ID);
+
+        Date nowDate = new Date();
+        TgClusterNode tgClusterNode = tgClusterNodeService.getByNodeId(NODE_ID);
+        if (tgClusterNode == null) {
+            tgClusterNode = new TgClusterNode();
+            tgClusterNode.setNodeId(NODE_ID);
+            tgClusterNode.setNodeDir(BASE_DIR);
+            tgClusterNode.setPublicIp(PUBLIC_IP);
+            tgClusterNode.setPrivateIp(PRIVATE_IP);
+            tgClusterNode.setNodePort(PORT);
+            tgClusterNode.setNodeStatus("1");
+            tgClusterNode.setMaxAccountCount(200);
+            tgClusterNode.setCreateTime(nowDate);
+            tgClusterNode.setNodeType("Java");
+            tgClusterNode.setLastActiveTime(nowDate);
+            tgClusterNode.setOnlineAccountCount(accounts.size());
+            tgClusterNode.setTotalAccountCount(nodeAccountCount.intValue());
+            tgClusterNodeService.insert(tgClusterNode);
+        } else {
+            TgClusterNode updateTgClusterNode = new TgClusterNode();
+            updateTgClusterNode.setNodeId(NODE_ID);
+            updateTgClusterNode.setLastActiveTime(nowDate);
+            updateTgClusterNode.setOnlineAccountCount(accounts.size());
+            updateTgClusterNode.setTotalAccountCount(nodeAccountCount.intValue());
+            tgClusterNodeService.update(updateTgClusterNode);
+        }
     }
 
     /**

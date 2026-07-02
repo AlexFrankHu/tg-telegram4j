@@ -5,9 +5,11 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.tg.telegram4j.entity.TgClusterNode;
 import com.tg.telegram4j.mapper.TgClusterNodeMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -42,7 +44,7 @@ public class TgClusterNodeService {
     }
 
     public void update(TgClusterNode entity) {
-        entity.setUpdateTime(LocalDateTime.now());
+        entity.setUpdateTime(new Date());
         mapper.updateById(entity);
     }
 
