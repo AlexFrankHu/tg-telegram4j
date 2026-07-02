@@ -140,6 +140,11 @@ public class TelegramAccountManager implements TelegramEventListener {
         }
     }
 
+    @Scheduled(initialDelay = 20*1000, fixedDelay = 15*1000)
+    public void loginTask() {
+
+    }
+
     /**
      * 获取公网IP地址。
      */
