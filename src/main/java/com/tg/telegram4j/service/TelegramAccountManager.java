@@ -8,23 +8,31 @@ import com.tg.telegram4j.model.DeviceInfo;
 import com.tg.telegram4j.model.ProxyInfo;
 import com.tg.telegram4j.model.SessionInfo;
 import com.tg.telegram4j.model.TelegramMessage;
+import com.tg.telegram4j.utils.MD5;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.nio.file.Path;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
 public class TelegramAccountManager implements TelegramEventListener {
 
-    @Value("${telegram.data-dir:./data}")
-    private String dataDir;
+    private String NODE_ID = "";
+
+    private String BASE_DIR = "";
+    private String DATA_DIR = "";
 
     private final TgTelethonAccountService accountService;
     private final Map<String, TelegramAccount> accounts = new ConcurrentHashMap<>();
@@ -41,7 +49,44 @@ public class TelegramAccountManager implements TelegramEventListener {
         String workDir = System.getProperty("user.dir");
         log.info("========== TelegramAccountManager 初始化 ==========");
         log.info("当前运行目录: {}", workDir);
-        log.info("数据存储目录: {}", dataDir);
+        File workFile = new File(workDir);
+        File baseFile = workFile.getParentFile();
+        BASE_DIR = baseFile.getAbsolutePath();
+        log.info("程序基础目录: {}", BASE_DIR);
+        DATA_DIR = BASE_DIR + File.separator + "data";
+        log.info("数据基础目录: {}", DATA_DIR);
+        log.info("===================================================");
+        initNodeInfo();
+    }
+
+    private void initNodeInfo() {
+        try {
+            String nodeInfoFilePath = DATA_DIR + File.separator + "nodeinfo.txt";
+            File nodeInfoFile = new File(nodeInfoFilePath);
+            if (nodeInfoFile.exists()) {
+                Properties properties = new Properties();
+                FileInputStream fileInputStream = new FileInputStream(nodeInfoFilePath);
+                properties.load(fileInputStream);
+                fileInputStream.close();
+                NODE_ID = properties.getProperty("ID");
+                if (NODE_ID == null || NODE_ID.trim().length() <= 0) {
+                    String nodeId = MD5.MD5generator16Bit(UUID.randomUUID().toString());
+                    properties = new Properties();
+                    properties.setProperty("ID", nodeId);
+                    properties.store(new FileOutputStream(nodeInfoFilePath), "");
+                    NODE_ID = nodeId;
+                }
+            } else {
+                String nodeId = MD5.MD5generator16Bit(UUID.randomUUID().toString());
+                Properties properties = new Properties();
+                properties.setProperty("ID", nodeId);
+                properties.store(new FileOutputStream(nodeInfoFilePath), "");
+                NODE_ID = nodeId;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        log.info("节点ID: {}", NODE_ID);
         log.info("===================================================");
     }
 
@@ -56,7 +101,7 @@ public class TelegramAccountManager implements TelegramEventListener {
 
         TelegramAccount account = new TelegramAccount(
                 name,
-                dataDir,
+                DATA_DIR,
                 request.getProxy(),
                 request.getDevice(),
                 request.isAutoReadMessages(),
@@ -112,7 +157,7 @@ public class TelegramAccountManager implements TelegramEventListener {
 
         TelegramAccount account = new TelegramAccount(
                 name,
-                dataDir,
+                DATA_DIR,
                 proxyInfo,
                 deviceInfo,
                 false,

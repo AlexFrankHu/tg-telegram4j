@@ -10,5 +10,6 @@ public class TgTelegram4jApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(TgTelegram4jApplication.class, args);
+        System.out.println(">>>>>>>>>>>>>>>>>>>>> RUN SUCCESS <<<<<<<<<<<<<<<<<<<<");
     }
 }

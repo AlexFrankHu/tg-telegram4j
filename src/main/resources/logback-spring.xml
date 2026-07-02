@@ -3,7 +3,7 @@
 
     <!-- 日志输出目录 -->
     <property name="LOG_PATH" value="./logs"/>
-    <property name="APP_NAME" value="tg-telegram4j"/>
+    <property name="APP_NAME" value="log"/>
 
     <!-- 控制台输出 -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
