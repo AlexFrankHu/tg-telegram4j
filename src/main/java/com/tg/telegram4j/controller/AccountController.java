@@ -375,4 +375,92 @@ public class AccountController {
             return ApiResponse.error(e.getMessage());
         }
     }
+
+    /**
+     * 通过用户名添加好友。
+     *
+     * <pre>
+     * curl -X POST http://localhost:8080/api/account/{sessionName}/contact/add-by-username \
+     *   -H "Content-Type: application/json" \
+     *   -d '{"username":"@zhangsan","firstName":"张","lastName":"三"}'
+     * </pre>
+     */
+    @PostMapping("/{sessionName}/contact/add-by-username")
+    public ApiResponse<Map<String, Object>> addContactByUsername(
+            @PathVariable String sessionName,
+            @RequestBody AddContactRequest request) {
+        try {
+            String username = request.getUserId();
+            if (username == null || username.isBlank()) {
+                return ApiResponse.error("username 不能为空");
+            }
+            Map<String, Object> result = accountManager.addContactByUsername(
+                    sessionName, username, request.getFirstName(), request.getLastName());
+            return ApiResponse.ok("通过用户名添加好友成功", result);
+        } catch (Exception e) {
+            log.error("Add contact by username failed for '{}'", sessionName, e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    // ==================== 陌生人消息接口 ====================
+
+    /**
+     * 通过用户名直接给陌生人发消息（无需先加好友）。
+     *
+     * <pre>
+     * curl -X POST http://localhost:8080/api/account/{sessionName}/send/stranger/username \
+     *   -H "Content-Type: application/json" \
+     *   -d '{"username":"@zhangsan","text":"你好"}'
+     * </pre>
+     */
+    @PostMapping("/{sessionName}/send/stranger/username")
+    public ApiResponse<Map<String, Object>> sendStrangerByUsername(
+            @PathVariable String sessionName,
+            @RequestBody SendStrangerRequest request) {
+        try {
+            if (request.getUsername() == null || request.getUsername().isBlank()) {
+                return ApiResponse.error("username 不能为空");
+            }
+            if (request.getText() == null || request.getText().isBlank()) {
+                return ApiResponse.error("text 不能为空");
+            }
+            Map<String, Object> result = accountManager.sendMessageByUsername(
+                    sessionName, request.getUsername(), request.getText());
+            return ApiResponse.ok("发送成功", result);
+        } catch (Exception e) {
+            log.error("Send stranger by username failed for '{}'", sessionName, e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 通过手机号直接给陌生人发消息（无需先加好友）。
+     *
+     * <pre>
+     * curl -X POST http://localhost:8080/api/account/{sessionName}/send/stranger/phone \
+     *   -H "Content-Type: application/json" \
+     *   -d '{"phone":"+8613800138000","text":"你好"}'
+     * </pre>
+     */
+    @PostMapping("/{sessionName}/send/stranger/phone")
+    public ApiResponse<Map<String, Object>> sendStrangerByPhone(
+            @PathVariable String sessionName,
+            @RequestBody SendStrangerRequest request) {
+        try {
+            if (request.getPhone() == null || request.getPhone().isBlank()) {
+                return ApiResponse.error("phone 不能为空");
+            }
+            if (request.getText() == null || request.getText().isBlank()) {
+                return ApiResponse.error("text 不能为空");
+            }
+            Map<String, Object> result = accountManager.sendMessageByPhone(
+                    sessionName, request.getPhone(),
+                    request.getFirstName(), request.getLastName(), request.getText());
+            return ApiResponse.ok("发送成功", result);
+        } catch (Exception e) {
+            log.error("Send stranger by phone failed for '{}'", sessionName, e);
+            return ApiResponse.error(e.getMessage());
+        }
+    }
 }

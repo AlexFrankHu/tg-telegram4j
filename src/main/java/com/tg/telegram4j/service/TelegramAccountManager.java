@@ -485,6 +485,32 @@ public class TelegramAccountManager implements TelegramEventListener {
         return account.importContacts(contacts);
     }
 
+    /**
+     * 通过用户名添加好友。
+     */
+    public Map<String, Object> addContactByUsername(String sessionName, String username,
+                                                     String firstName, String lastName) {
+        TelegramAccount account = getAccountOrThrow(sessionName);
+        return account.addContactByUsername(username, firstName, lastName);
+    }
+
+    /**
+     * 通过用户名直接给陌生人发消息。
+     */
+    public Map<String, Object> sendMessageByUsername(String sessionName, String username, String text) {
+        TelegramAccount account = getAccountOrThrow(sessionName);
+        return account.sendMessageByUsername(username, text);
+    }
+
+    /**
+     * 通过手机号直接给陌生人发消息。
+     */
+    public Map<String, Object> sendMessageByPhone(String sessionName, String phone,
+                                                  String firstName, String lastName, String text) {
+        TelegramAccount account = getAccountOrThrow(sessionName);
+        return account.sendMessageByPhone(phone, firstName, lastName, text);
+    }
+
     // ==================== TelegramEventListener 回调实现 ====================
 
     @Override

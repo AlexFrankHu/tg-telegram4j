@@ -14,6 +14,7 @@ import telegram4j.core.auth.AuthorizationHandler;
 import telegram4j.core.event.domain.message.SendMessageEvent;
 import telegram4j.core.object.Message;
 import telegram4j.core.object.MentionablePeer;
+import telegram4j.core.object.PeerEntity;
 import telegram4j.core.object.chat.Chat;
 import telegram4j.core.retriever.EntityRetrievalStrategy;
 import telegram4j.core.retriever.PreferredEntityRetriever;
@@ -474,6 +475,133 @@ public class TelegramAccount {
     }
 
     /**
+     * 通过用户名添加好友。
+     * 先通过 contacts.resolveUsername 解析出用户（陌生人也可解析），再调用 contacts.addContact。
+     *
+     * @param username  目标用户名（可带或不带 @）
+     * @param firstName 备注名-姓
+     * @param lastName  备注名-名
+     * @return 添加结果信息
+     */
+    public Map<String, Object> addContactByUsername(String username, String firstName, String lastName) {
+        checkConnected();
+        try {
+            telegram4j.core.object.User user = resolveUserByUsername(username);
+            long userId = user.getId().asLong();
+            long accessHash = user.getId().getAccessHash().orElse(0L);
+
+            var request = ImmutableAddContact.builder()
+                    .id(ImmutableBaseInputUser.of(userId, accessHash))
+                    .firstName(firstName != null ? firstName : "")
+                    .lastName(lastName != null ? lastName : "")
+                    .phone("")
+                    .build();
+
+            client.getServiceHolder().getUserService().addContact(request)
+                    .block(Duration.ofSeconds(15));
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("success", true);
+            result.put("userId", userId);
+            result.put("username", username);
+            result.put("firstName", firstName);
+            result.put("lastName", lastName);
+            result.put("timestamp", Instant.now().toString());
+            log.info("[{}] 通过用户名添加好友成功: username={}, userId={}", sessionName, username, userId);
+            return result;
+        } catch (Exception e) {
+            log.error("[{}] 通过用户名添加好友失败: username={}, error={}", sessionName, username, e.getMessage(), e);
+            throw new RuntimeException("通过用户名添加好友失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 通过用户名直接给陌生人发消息（无需先加好友）。
+     * 先通过 contacts.resolveUsername 解析出用户，再发送消息。
+     *
+     * @param username 目标用户名（可带或不带 @）
+     * @param text     消息内容
+     * @return 发送结果信息
+     */
+    public Map<String, Object> sendMessageByUsername(String username, String text) {
+        checkConnected();
+        try {
+            telegram4j.core.object.User user = resolveUserByUsername(username);
+            Chat chat = client.getChatById(user.getId())
+                    .switchIfEmpty(Mono.error(new RuntimeException("无法打开与用户的会话: " + username)))
+                    .block(Duration.ofSeconds(15));
+            if (chat == null) {
+                throw new RuntimeException("无法打开与用户的会话: " + username);
+            }
+            Message sent = chat.sendMessage(SendMessageSpec.of(text))
+                    .block(Duration.ofSeconds(15));
+            log.info("[{}] 通过用户名发送陌生人消息成功: username={}", sessionName, username);
+            return buildSendResult(sent, username, text);
+        } catch (Exception e) {
+            log.error("[{}] 通过用户名发送陌生人消息失败: username={}, error={}", sessionName, username, e.getMessage(), e);
+            throw new RuntimeException("通过用户名发送陌生人消息失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 通过手机号直接给陌生人发消息（无需先加好友）。
+     * 手机号无法直接解析用户，需先通过 contacts.importContacts 匹配已注册用户，再发送消息。
+     *
+     * @param phone     目标手机号（国际格式，如 +8613800138000）
+     * @param firstName 导入时的备注名-姓（可为空）
+     * @param lastName  导入时的备注名-名（可为空）
+     * @param text      消息内容
+     * @return 发送结果信息
+     */
+    public Map<String, Object> sendMessageByPhone(String phone, String firstName, String lastName, String text) {
+        checkConnected();
+        try {
+            if (phone == null || phone.isBlank()) {
+                throw new IllegalArgumentException("手机号不能为空");
+            }
+
+            InputContact inputContact = ImmutableInputContact.of(
+                    0L,
+                    phone,
+                    firstName != null ? firstName : "",
+                    lastName != null ? lastName : "");
+
+            ImportedContacts imported = client.getServiceHolder().getUserService()
+                    .importContacts(List.of(inputContact))
+                    .block(Duration.ofSeconds(30));
+
+            if (imported == null || imported.users().isEmpty()) {
+                throw new RuntimeException("手机号未匹配到 Telegram 用户: " + phone);
+            }
+
+            User tlUser = imported.users().get(0);
+            if (!(tlUser instanceof BaseUser)) {
+                throw new RuntimeException("手机号未匹配到有效 Telegram 用户: " + phone);
+            }
+            BaseUser baseUser = (BaseUser) tlUser;
+            long userId = baseUser.id();
+            Long accessHash = baseUser.accessHash();
+
+            Chat chat = client.getChatById(Id.ofUser(userId, accessHash))
+                    .switchIfEmpty(Mono.error(new RuntimeException("无法打开与用户的会话: " + phone)))
+                    .block(Duration.ofSeconds(15));
+            if (chat == null) {
+                throw new RuntimeException("无法打开与用户的会话: " + phone);
+            }
+
+            Message sent = chat.sendMessage(SendMessageSpec.of(text))
+                    .block(Duration.ofSeconds(15));
+            log.info("[{}] 通过手机号发送陌生人消息成功: phone={}, userId={}", sessionName, phone, userId);
+            Map<String, Object> result = buildSendResult(sent, phone, text);
+            result.put("userId", userId);
+            return result;
+        } catch (Exception e) {
+            log.error("[{}] 通过手机号发送陌生人消息失败: phone={}, error={}", sessionName, phone, e.getMessage(), e);
+            throw new RuntimeException("通过手机号发送陌生人消息失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * 断开该账号的连接。
      */
     public void disconnect() {
@@ -653,6 +781,26 @@ public class TelegramAccount {
             throw new RuntimeException("Chat not found: " + chatId);
         }
         return chat;
+    }
+
+    /**
+     * 通过用户名解析出用户对象（陌生人也可解析，内部走 contacts.resolveUsername）。
+     */
+    private telegram4j.core.object.User resolveUserByUsername(String username) {
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("用户名不能为空");
+        }
+        String uname = username.startsWith("@") ? username.substring(1) : username;
+        PeerEntity entity = client.resolvePeer(PeerId.of(uname))
+                .switchIfEmpty(Mono.error(new RuntimeException("无法解析用户名: " + username)))
+                .block(Duration.ofSeconds(15));
+        if (entity == null) {
+            throw new RuntimeException("无法解析用户名: " + username);
+        }
+        if (!(entity instanceof telegram4j.core.object.User)) {
+            throw new RuntimeException("用户名对应的不是用户(可能是频道/群组): " + username);
+        }
+        return (telegram4j.core.object.User) entity;
     }
 
     private SessionInfo fetchSelfInfo(Id selfId) {
