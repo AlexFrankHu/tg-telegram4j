@@ -101,11 +101,12 @@ public class TgTelethonAccountService {
     /**
      * 更新账号状态。
      */
-    public void updateStatus(Integer id, String status) {
+    public void updateStatus(Integer id, String status, String errorMsg) {
         LambdaUpdateWrapper<TgTelethonAccount> wrapper = new LambdaUpdateWrapper<>();
         wrapper.eq(TgTelethonAccount::getId, id)
                .set(TgTelethonAccount::getStatus, status)
-               .set(TgTelethonAccount::getUpdateTime, LocalDateTime.now());
+               .set(TgTelethonAccount::getUpdateTime, LocalDateTime.now())
+                .set(TgTelethonAccount::getErrorMsg, errorMsg);
         accountMapper.update(null, wrapper);
     }
 

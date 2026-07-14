@@ -22,5 +22,9 @@ public interface TelegramEventListener {
      * @param account 断开连接的账号对象
      * @param reason  断开原因描述
      */
-    void onDisconnect(TelegramAccount account, String reason);
+    void onDisconnect(TelegramAccount account, Integer errorCode, String reason);
+
+    void onLoginSuccess(TelegramAccount account);
+
+    void onLoginFailed(TelegramAccount account, Integer errorCode, String errorMsg);
 }

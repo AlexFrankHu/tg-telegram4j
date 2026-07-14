@@ -1,6 +1,6 @@
 package com.tg.telegram4j.model;
 
-import com.alibaba.fastjson2.JSONObject;
+import com.alibaba.fastjson.JSONObject;
 import com.tg.telegram4j.utils.JsonUtil;
 import lombok.Data;
 
@@ -10,7 +10,7 @@ import lombok.Data;
 @Data
 public class JsonFileContent {
 
-    private boolean hasData = false;
+    private boolean isHasData = false;
 
     /** session文件名 */
     private String sessionFile;
@@ -81,6 +81,10 @@ public class JsonFileContent {
     /** Telegram用户ID */
     private Long id;
 
+    public boolean hasData() {
+        return isHasData;
+    }
+
     /**
      * 通过JSON字符串构造。
      */
@@ -89,7 +93,7 @@ public class JsonFileContent {
             return;
         }
         try {
-            JSONObject json = JsonUtil.parseObject(content);
+            JSONObject json = JSONObject.parseObject(content);
             this.sessionFile = JsonUtil.getString(json, "session_file");
             this.phone = JsonUtil.getString(json, "phone");
             this.appId = JsonUtil.getInt(json, "app_id");
@@ -100,7 +104,7 @@ public class JsonFileContent {
             this.langPack = JsonUtil.getString(json, "lang_pack");
             this.systemLangPack = JsonUtil.getString(json, "system_lang_pack");
             this.username = JsonUtil.getString(json, "username");
-            this.ipv6 = JsonUtil.getBoolean(json, "ipv6");
+            this.ipv6 = JsonUtil.getBoolean(json, "ipv6", false);
             this.firstName = JsonUtil.getString(json, "first_name");
             this.lastName = JsonUtil.getString(json, "last_name");
             this.registerTime = JsonUtil.getLong(json, "register_time");
@@ -110,13 +114,13 @@ public class JsonFileContent {
             this.avatar = JsonUtil.getString(json, "avatar");
             this.proxy = JsonUtil.getString(json, "proxy");
             this.twoFA = JsonUtil.getString(json, "twoFA");
-            this.block = JsonUtil.getBoolean(json, "block");
+            this.block = JsonUtil.getBoolean(json, "block", false);
             this.systemLangCode = JsonUtil.getString(json, "system_lang_code");
             this.id = JsonUtil.getLong(json, "id");
-            hasData = true;
+            isHasData = true;
         } catch (Exception e) {
             e.printStackTrace();
-            hasData = false;
+            isHasData = false;
         }
     }
 }

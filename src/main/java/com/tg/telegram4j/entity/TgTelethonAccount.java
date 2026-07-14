@@ -124,4 +124,6 @@ public class TgTelethonAccount {
 
     /** 更新时间 */
     private LocalDateTime updateTime;
+
+    private String errorMsg;
 }

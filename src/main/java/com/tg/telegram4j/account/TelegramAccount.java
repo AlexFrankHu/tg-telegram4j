@@ -1,9 +1,7 @@
 package com.tg.telegram4j.account;
 
-import com.tg.telegram4j.model.DeviceInfo;
-import com.tg.telegram4j.model.ProxyInfo;
-import com.tg.telegram4j.model.SessionInfo;
-import com.tg.telegram4j.model.TelegramMessage;
+import com.tg.telegram4j.entity.TgTelethonAccount;
+import com.tg.telegram4j.model.*;
 import com.tg.telegram4j.session.TelethonSessionData;
 import com.tg.telegram4j.session.TelethonSessionReader;
 import com.tg.telegram4j.store.TelethonImportStoreLayout;
@@ -81,12 +79,15 @@ public class TelegramAccount {
     private final int apiId;
     private final String apiHash;
     private final TelegramEventListener eventListener;
+    @Getter
+    private TgTelethonAccount tgTelethonAccount;
 
-    public TelegramAccount(String sessionName, String dataDir,
+    public TelegramAccount(TgTelethonAccount tgTelethonAccount, String sessionName, String dataDir,
                            ProxyInfo proxyInfo, DeviceInfo deviceInfo,
                            boolean autoReadMessages,
                            Integer apiId, String apiHash,
                            TelegramEventListener eventListener) {
+        this.tgTelethonAccount = tgTelethonAccount;
         this.sessionName = sessionName;
         this.dataDir = dataDir;
         this.proxyInfo = proxyInfo;
@@ -100,9 +101,9 @@ public class TelegramAccount {
     /**
      * 使用 session 字节数组登录。
      */
-    public SessionInfo login(byte[] sessionBytes) {
+    public ResultInfo login(byte[] sessionBytes) {
         if (connected) {
-            throw new IllegalStateException("Account '" + sessionName + "' is already connected");
+            return ResultInfo.success();
         }
 
         TelethonSessionData sessionData = TelethonSessionReader.readFromBytes(sessionBytes);
@@ -166,7 +167,7 @@ public class TelegramAccount {
             client = bootstrap.connect().block(Duration.ofSeconds(30));
 
             if (client == null) {
-                throw new RuntimeException("Failed to connect — client is null");
+                return ResultInfo.error(1000, "无法建立连接");
             }
 
             Id selfId = client.getSelfId();
@@ -184,11 +185,12 @@ public class TelegramAccount {
             sessionInfo = fetchSelfInfo(selfId);
             connected = true;
 
-            return sessionInfo;
+            return ResultInfo.success();
 
         } catch (Exception e) {
             log.error("[{}] Login failed: {}", sessionName, e.getMessage(), e);
-            throw new RuntimeException("Login failed for '" + sessionName + "': " + e.getMessage(), e);
+//            throw new RuntimeException("Login failed for '" + sessionName + "': " + e.getMessage(), e);
+            return ResultInfo.error(9999, e.getMessage());
         }
     }
 
@@ -579,12 +581,12 @@ public class TelegramAccount {
                         null,
                         error -> {
                             // 异常导致的断连
-                            String reason = "连接异常: " + error.getMessage();
+                            String reason = "连接异常(检查账号状态或者代理状态): " + error.getMessage();
                             log.warn("[{}] 账号断连(异常): {}", sessionName, reason);
                             connected = false;
                             if (eventListener != null) {
                                 try {
-                                    eventListener.onDisconnect(this, reason);
+                                    eventListener.onDisconnect(this,1, reason);
                                 } catch (Exception e) {
                                     log.warn("[{}] 断连回调处理异常: {}", sessionName, e.getMessage());
                                 }
@@ -592,12 +594,12 @@ public class TelegramAccount {
                         },
                         () -> {
                             // 正常断连（主动调用 disconnect 或服务端关闭）
-                            String reason = "连接已关闭";
+                            String reason = "连接已关闭(主动断开)";
                             log.info("[{}] 账号断连(正常): {}", sessionName, reason);
                             connected = false;
                             if (eventListener != null) {
                                 try {
-                                    eventListener.onDisconnect(this, reason);
+                                    eventListener.onDisconnect(this,0, reason);
                                 } catch (Exception e) {
                                     log.warn("[{}] 断连回调处理异常: {}", sessionName, e.getMessage());
                                 }
